@@ -206,6 +206,21 @@ textarea{resize:vertical;width:100%}
 .modal h3{font-family:"Noto Serif SC",serif;font-size:16px;margin-bottom:14px;letter-spacing:1px}
 .modal .btns{display:flex;gap:10px;margin-top:14px}
 
+/* ====== 顶栏 Hero ====== */
+.hero{background:linear-gradient(135deg,#2d4a36,#3a5f44);border-radius:16px;padding:20px 24px;margin-bottom:16px;color:#f4eeda;position:relative;overflow:hidden}
+.hero .h-date{font-size:12px;color:rgba(244,238,218,.6);letter-spacing:1px}
+.hero .h-welcome{font-family:"Noto Serif SC",serif;font-size:20px;letter-spacing:2px;font-weight:700;margin-top:4px}
+.hero .h-cheer{font-size:13px;color:rgba(244,238,218,.8);margin-top:8px;letter-spacing:1px;line-height:1.7;max-width:70%}
+.hero .h-clock{position:absolute;right:22px;top:50%;transform:translateY(-50%);text-align:right;font-family:Georgia,serif}
+.hero .h-clock .t{font-size:25px;font-weight:700;letter-spacing:2px;color:#f4eeda}
+.hero .h-clock .s{font-size:10.5px;color:rgba(244,238,218,.5);letter-spacing:2px}
+/* ====== 横向大导航选项卡 ====== */
+.bigtabs{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 12px;margin-bottom:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.bigtabs::-webkit-scrollbar{display:none}
+.bigtabs .bt{flex:none;padding:9px 18px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);font-size:13.5px;color:var(--ink-soft);cursor:pointer;user-select:none;white-space:nowrap;letter-spacing:1px;transition:all .12s;font-family:"Noto Serif SC",serif}
+.bigtabs .bt:hover{border-color:var(--green);color:var(--green)}
+.bigtabs .bt.on{background:var(--green-deep);border-color:var(--green-deep);color:#f4eeda}
+
 /* ====== 手机端 ====== */
 .mobile-top{display:none;position:sticky;top:0;z-index:25;background:var(--green-deep);color:#f4eeda;padding:10px 16px;padding-top:calc(10px + var(--safe-t));display:none;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(45,74,54,.2)}
 .mobile-top .seal{width:32px;height:32px;font-size:17px;border-radius:7px}
@@ -450,7 +465,7 @@ function accPublished(a){return yearRecords(a.records).length;}
 function badge(tag,color){return'<span class="badge" style="background:'+color+'">'+esc(tag)+'</span>';}
 
 /* ====== UI 状态 ====== */
-const ui={view:'overview',calMonth:todayKey().slice(0,7),todoTag:'all',readCat:'all',ideaType:'all',ideaQuick:'文章选题',novelTab:'素材',conceptCat:'all',accKey:'personal',accStatus:'all',editId:null,exerciseType:'跑步'};
+const ui={view:'overview',calMonth:todayKey().slice(0,7),todoTag:'all',readCat:'all',ideaType:'all',ideaQuick:'文章选题',novelTab:'素材',conceptCat:'all',accKey:'personal',accStatus:'all',editId:null,exerciseType:'跑步',engTab:'words'};
 const VIEWS={
   overview:{ico:'🏠',name:'总览'},
   todos:{ico:'📋',name:'今日日课'},
@@ -494,13 +509,28 @@ function checkCheer(){
 }
 function showCheer(){
   let el=document.querySelector('.cheer');
-  if(!el){el=document.createElement('div');el.className='cheer';document.querySelector('.wrap').insertBefore(el,document.querySelector('.wrap').firstChild);}
+  if(!el){el=document.createElement('div');el.className='cheer';const w=document.querySelector('.wrap');const hero=w&&w.querySelector('.hero');if(hero)hero.after(el);else if(w)w.insertBefore(el,w.firstChild);}
   const msg=CHEER_MSGS[Math.floor(Math.random()*CHEER_MSGS.length)];
   el.innerHTML='<span class="seal-sm">勉</span>'+msg;
   el.classList.add('show');
 }
 
 /* ====== 总览 ====== */
+function welcomeText(){
+  const h=new Date().getHours();const n='耿茗傑';
+  if(h<5)return n+'，夜深了，早些休息';
+  if(h<9)return n+'，晨光初照，一日之计在于晨';
+  if(h<12)return n+'，上午好，专注当下';
+  if(h<14)return n+'，午安，小憩片刻';
+  if(h<18)return n+'，午后安好，稳步精进';
+  if(h<23)return n+'，晚间好，复盘今日';
+  return n+'，夜深了，早些休息';
+}
+function cheerOfDay(){
+  const d=new Date();
+  const day=Math.floor((d-new Date(d.getFullYear(),0,0))/864e5);
+  return CHEER_MSGS[day%CHEER_MSGS.length];
+}
 function vOverview(){
   const t=todayKey();
   const undone=state.todos.filter(x=>!x.done);
@@ -508,6 +538,17 @@ function vOverview(){
   const avgA=Math.round(state.papers.reduce((s,p)=>s+paperPct(p),0)/state.papers.length);
   const pa=state.accounts.personal,pw=state.accounts.work;
   const nP=accPublished(pa),nW=accPublished(pw);
+  // 1. 顶部：欢迎文案 + 鼓励语 + 实时日期时间
+  let g='<div class="hero"><div class="h-date">'+todayCN()+'</div><div class="h-welcome">'+welcomeText()+'</div><div class="h-cheer">「'+cheerOfDay()+'」</div><div class="h-clock"><div class="t" id="hClock">--:--:--</div><div class="s">实时时间</div></div></div>';
+  // 2. 日历 + 今日待办 合并区块（完成后划线保留，不隐藏）
+  const todayTodos=state.todos.filter(x=>x.date===t);
+  g+='<div class="card"><h3>📅 日历 · 今日待办 <span class="tag-mini">今日 '+todayTodos.filter(x=>x.done).length+'/'+todayTodos.length+' 完成</span></h3>'+calInner(true)+
+    '<div class="sec-title" style="margin-top:12px">当日待办 · 完成后划线保留</div>'+
+    (todayTodos.length?todayTodos.map(todoItem).join(''):'<div class="empty">今日暂无待办，可在下方「今日日课」添加</div>')+'</div>';
+  // 3. 今日修身
+  const ci=state.checkins[t]||{};
+  g+='<div class="card"><h3>🌿 今日修身 <span class="tag-mini">'+ciCount(t)+'/6</span></h3><div class="ci-grid">'+CI_ITEMS.map(([k,n])=>'<div class="ci'+(ci[k]?' on':'')+'" data-act="ci-toggle" data-k="'+k+'"><div class="name">'+n+'</div><div class="st">'+(ci[k]?'已完成':'未完成')+'</div></div>').join('')+'</div></div>';
+  // 数据速览
   const cards=[
     {v:'todos',lab:'📋 今日日课',num:doneToday.length+'<em>/'+(doneToday.length+undone.filter(x=>x.date===t).length)+'</em>',hot:undone.some(x=>x.date===t)},
     {v:'checkin',lab:'🌿 修身打卡',num:ciCount(t)+'<em>/6</em>',hot:ciCount(t)<6},
@@ -519,21 +560,14 @@ function vOverview(){
     {v:'reading',lab:'📝 读书札记',num:state.reading.length+'<em>篇</em>'},
     {v:'english',lab:'📕 英语学习',num:state.english.words+'<em>词</em>'}
   ];
-  let g='<div class="grid9" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px">'+cards.map(c=>'<div class="card" style="cursor:pointer;margin:0;padding:12px 14px" data-act="nav" data-view="'+c.v+'"><div style="font-size:12px;color:var(--ink-soft)">'+c.lab+'</div><div style="font-family:Georgia,serif;font-size:24px;font-weight:700;color:'+(c.hot?'var(--red)':'var(--green)')+';margin-top:2px">'+c.num+'</div></div>').join('')+'</div>';
-
-  // 日历
-  g+=calWidget(true);
-  
-  const ci=state.checkins[t]||{};
-  g+='<div class="two-col">';
-  g+='<div class="card"><h3>🌿 今日修身 <span class="tag-mini">'+ciCount(t)+'/6</span></h3><div class="ci-grid">'+CI_ITEMS.map(([k,n])=>'<div class="ci'+(ci[k]?' on':'')+'" data-act="ci-toggle" data-k="'+k+'"><div class="name">'+n+'</div><div class="st">'+(ci[k]?'已完成':'未完成')+'</div></div>').join('')+'</div></div>';
-  g+='<div class="card"><h3>📋 今日待办 <span class="tag-mini">遗留 '+undone.filter(x=>x.date!==t).length+' 项</span></h3><div class="add-row"><input type="text" id="ov-todo" placeholder="添加待办…"><select id="ov-tag" style="width:auto">'+TODO_TAGS.map(x=>'<option>'+x+'</option>').join('')+'</select><button class="btn" data-act="ov-todo-add">添加</button></div>'+(undone.length?undone.slice(0,5).map(todoItem).join(''):'<div class="empty">今日无事 · 心自安</div>')+'</div>';
-  g+='</div>';
-  return pageHead('总览',todayCN())+g;
+  g+='<div class="grid9" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px">'+cards.map(c=>'<div class="card" style="cursor:pointer;margin:0;padding:12px 14px" data-act="nav" data-view="'+c.v+'"><div style="font-size:12px;color:var(--ink-soft)">'+c.lab+'</div><div style="font-family:Georgia,serif;font-size:24px;font-weight:700;color:'+(c.hot?'var(--red)':'var(--green)')+';margin-top:2px">'+c.num+'</div></div>').join('')+'</div>';
+  // 4. 今日日课（放在最后）
+  g+=vTodosBody();
+  return pageHead('总览','个人精进看板')+g;
 }
 
 /* ====== 日历组件 ====== */
-function calWidget(showMoodPicker){
+function calInner(showMoodPicker){
   const ym=ui.calMonth;const y=+ym.slice(0,4),m=+ym.slice(5);
   const first=new Date(y,m-1,1);const startDow=(first.getDay()+6)%7;
   const daysInMonth=new Date(y,m,0).getDate();
@@ -553,7 +587,10 @@ function calWidget(showMoodPicker){
     cells+='<div class="cal-cell'+(isToday?' today':'')+'" data-act="cal-day" data-d="'+dk+'"><div class="dn">'+d+'</div>'+(moodEmoji?'<div class="mood">'+moodEmoji+'</div>':'')+(total?'<div class="ci-bar"><i style="width:'+pct+'%"></i></div>':'')+'</div>';
   }
   const moodPicker=showMoodPicker?'<div class="mood-pick">'+MOODS.map(([k,e,n])=>'<span class="m'+(state.moods[today]===k?' on':'')+'" data-act="mood-set" data-v="'+k+'" title="'+n+'">'+e+'</span>').join('')+'</div>':'';
-  return '<div class="card"><h3>📅 日历 <span class="tag-mini">点击日期记录心情</span></h3><div class="cal-head"><button data-act="cal-prev">‹</button><span class="ym">'+y+'年'+m+'月</span><button data-act="cal-next">›</button></div><div class="cal-grid"><div class="dow">一</div><div class="dow">二</div><div class="dow">三</div><div class="dow">四</div><div class="dow">五</div><div class="dow">六</div><div class="dow">日</div>'+cells+'</div>'+moodPicker+'</div>';
+  return '<div class="cal-head"><button data-act="cal-prev">‹</button><span class="ym">'+y+'年'+m+'月</span><button data-act="cal-next">›</button></div><div class="cal-grid"><div class="dow">一</div><div class="dow">二</div><div class="dow">三</div><div class="dow">四</div><div class="dow">五</div><div class="dow">六</div><div class="dow">日</div>'+cells+'</div>'+moodPicker;
+}
+function calWidget(showMoodPicker){
+  return '<div class="card"><h3>📅 打卡日历 <span class="tag-mini">点击日期记录心情</span></h3>'+calInner(showMoodPicker)+'</div>';
 }
 
 /* ====== 今日日课 ====== */
@@ -561,7 +598,7 @@ function todoItem(x){
   const late=x.date!==todayKey()&&!x.done;
   return'<div class="item'+(x.done?' done':'')+'"><div class="check'+(x.done?' on':'')+'" data-act="todo-toggle" data-id="'+x.id+'">✓</div><div class="grow"><div class="txt">'+esc(x.text)+'</div><div class="meta">'+badge(x.tag,TAG_COLORS[x.tag]||'#8a8371')+(late?'<span style="color:var(--red)">遗留 '+x.date+'</span>':'<span>'+x.date+'</span>')+'</div></div><button class="icon-btn" data-act="todo-edit" data-id="'+x.id+'">✎</button><button class="icon-btn" data-act="todo-del" data-id="'+x.id+'">✕</button></div>';
 }
-function vTodos(){
+function vTodosBody(){
   let g='<div class="card"><h3>➕ 添加日课</h3><div class="add-row" style="margin-bottom:0"><input type="text" id="td-text" placeholder="今天要做什么…" data-enter="todo-add"><select id="td-tag" style="width:auto">'+TODO_TAGS.map(x=>'<option>'+x+'</option>').join('')+'</select><button class="btn" data-act="todo-add">添加</button></div></div>';
   const f=ui.todoTag;
   const match=x=>f==='all'||x.tag===f;
@@ -578,7 +615,10 @@ function vTodos(){
     dates.forEach(d=>{g+='<div class="sec-title" data-act="toggle-sec"><span class="arrow">▸</span>'+d+'（'+doneByDate[d].length+'项）</div><div class="sec-body">'+doneByDate[d].map(todoItem).join('')+'</div>';});
     g+='</div>';
   }
-  return pageHead('今日日课','要事第一，日日不断')+g;
+  return g;
+}
+function vTodos(){
+  return pageHead('今日日课','要事第一，日日不断')+vTodosBody();
 }
 
 /* ====== 修身打卡 ====== */
@@ -645,18 +685,19 @@ function vConcept(){
 /* ====== 小说创作 ====== */
 function vNovel(){
   const nv=state.novel;
-  let g='<div class="card"><h3>📌 创作状态</h3><div class="add-row" style="margin-bottom:0"><span style="font-size:12.5px;color:var(--ink-soft)">总字数</span><input type="number" style="width:120px" value="'+nv.words+'" data-change="novel-words"><span style="font-size:12.5px;color:var(--ink-soft)">阶段</span><select data-change="novel-stage">'+NOVEL_STAGES.map(s=>'<option'+(nv.stage===s?' selected':'')+'>'+s+'</option>').join('')+'</select></div></div>';
-  g+='<div class="chips">'+NOVEL_TYPES.map(x=>'<span class="chip'+(ui.novelTab===x?' on':'')+'" data-act="novel-tab" data-v="'+x+'">'+x+'</span>').join('')+'</div>';
+  let g='<div class="bigtabs">'+NOVEL_TYPES.map(x=>'<span class="bt'+(ui.novelTab===x?' on':'')+'" data-act="novel-tab" data-v="'+x+'">'+x+'</span>').join('')+'</div>';
   g+='<div class="card"><h3>✒️ 记一笔（'+ui.novelTab+'）</h3><div class="fld" style="margin-bottom:8px"><label>标题</label><input type="text" id="nv-title" placeholder="给这条笔记起个名…"></div><div class="fld" style="margin-bottom:10px"><label>内容</label><textarea rows="3" id="nv-body" placeholder="写下来…"></textarea></div><button class="btn" data-act="novel-add">保存</button></div>';
   const list=nv.notes.filter(x=>x.type===ui.novelTab);
   g+=list.length?list.slice().reverse().map(x=>'<div class="rec-card"><div class="r-head">'+badge(x.type,'#7d5a8c')+'<b>'+esc(x.title)+'</b><span class="date">'+x.date+'</span><button class="icon-btn" data-act="novel-edit" data-id="'+x.id+'">✎</button><button class="icon-btn" data-act="novel-del" data-id="'+x.id+'">✕</button></div><div class="rec-body">'+nl2br(x.content)+'</div></div>').join(''):'<div class="empty">这一类还没有笔记</div>';
+  g+='<div class="card" style="margin-top:16px"><h3>📌 创作状态</h3><div class="add-row" style="margin-bottom:0"><span style="font-size:12.5px;color:var(--ink-soft)">总字数</span><input type="number" style="width:120px" value="'+nv.words+'" data-change="novel-words"><span style="font-size:12.5px;color:var(--ink-soft)">阶段</span><select data-change="novel-stage">'+NOVEL_STAGES.map(s=>'<option'+(nv.stage===s?' selected':'')+'>'+s+'</option>').join('')+'</select></div></div>';
   return pageHead('✒️ 小说创作','字字得来不寻常')+g;
 }
 
 /* ====== 读书札记 ====== */
 function vReading(){
-  let g='<div class="card"><h3>✍️ 记一条札记</h3><div class="form-grid"><div class="fld"><label>分类</label><select id="rd-cat">'+READ_CATS.map(x=>'<option>'+x+'</option>').join('')+'</select></div><div class="fld"><label>标题 / 出处</label><input type="text" id="rd-title" placeholder="如：《定性书》程颢"></div><div class="fld full"><label>内容</label><textarea rows="3" id="rd-body" placeholder="摘录或心得…"></textarea></div></div><button class="btn" data-act="reading-add">保存</button></div>';
-  g+='<div class="chips">'+['all'].concat(READ_CATS).map(x=>'<span class="chip'+(ui.readCat===x?' on':'')+'" data-act="reading-filter" data-v="'+x+'">'+(x==='all'?'查看全部':x)+'</span>').join('')+'</div>';
+  const tabs=['查看全部'].concat(READ_CATS);
+  let g='<div class="bigtabs">'+tabs.map(x=>{const v=x==='查看全部'?'all':x;return '<span class="bt'+(ui.readCat===v?' on':'')+'" data-act="reading-filter" data-v="'+v+'">'+x+'</span>';}).join('')+'</div>';
+  g+='<div class="card"><h3>✍️ 记一条札记</h3><div class="form-grid"><div class="fld"><label>分类</label><select id="rd-cat">'+READ_CATS.map(x=>'<option'+(ui.readCat===x?' selected':'')+'>'+x+'</option>').join('')+'</select></div><div class="fld"><label>标题 / 出处</label><input type="text" id="rd-title" placeholder="如：《定性书》程颢"></div><div class="fld full"><label>内容</label><textarea rows="3" id="rd-body" placeholder="摘录或心得…"></textarea></div></div><button class="btn" data-act="reading-add">保存</button></div>';
   const list=state.reading.filter(x=>ui.readCat==='all'||x.category===ui.readCat);
   g+=list.length?list.slice().reverse().map(x=>'<div class="rec-card"><div class="r-head">'+badge(x.category,READ_COLORS[x.category]||'#8a8371')+'<b>'+esc(x.title)+'</b><span class="date">'+x.date+'</span><button class="icon-btn" data-act="reading-edit" data-id="'+x.id+'">✎</button><button class="icon-btn" data-act="reading-del" data-id="'+x.id+'">✕</button></div><div class="rec-body">'+nl2br(x.content)+'</div></div>').join(''):'<div class="empty">读书不记，如雨入大海</div>';
   return pageHead('📝 读书札记','含英咀华，随手札录')+g;
@@ -674,11 +715,15 @@ function vIdeas(){
 /* ====== 英语学习 ====== */
 function vEnglish(){
   const e=state.english;
-  let g='<div class="stat-row"><div class="mini-stat"><div class="v">'+e.words+'</div><div class="k">单词量</div></div><div class="mini-stat"><div class="v">'+e.listening+'</div><div class="k">听力(篇)</div></div><div class="mini-stat"><div class="v">'+e.reading+'</div><div class="k">阅读(篇)</div></div><div class="mini-stat"><div class="v">'+e.speaking+'</div><div class="k">口语(次)</div></div></div>';
-  g+='<div class="card"><h3>🎯 考试类型与学习计划</h3><div class="add-row" style="margin-bottom:12px"><span style="font-size:12.5px;color:var(--ink-soft)">当前选择</span><select data-change="eng-exam">'+EXAM_TYPES.map(x=>'<option'+(e.examType===x?' selected':'')+'>'+x+'</option>').join('')+'</select></div>'+engPlan(e.examType)+'</div>';
-  g+='<div class="card"><h3>📊 今日学习记录</h3><div class="form-grid"><div class="fld"><label>学习类型</label><select id="eng-type"><option value="words">单词(个)</option><option value="listening">听力(篇)</option><option value="reading">阅读(篇)</option><option value="speaking">口语(次)</option></select></div><div class="fld"><label>数量</label><input type="number" id="eng-qty" value="10" min="0"></div><div class="fld full"><label>备注</label><input type="text" id="eng-note" placeholder="学了什么…"></div></div><button class="btn" data-act="eng-log">记录</button></div>';
-  const logs=e.logs||[];
-  g+=logs.length?'<div class="card"><h3>📝 学习日志 <span class="tag-mini">'+logs.length+' 条</span></h3>'+logs.slice().reverse().slice(0,20).map(l=>'<div class="item"><div class="grow"><div class="txt">'+({'words':'单词','listening':'听力','reading':'阅读','speaking':'口语'}[l.type])+' '+l.qty+' '+(l.note?'· '+esc(l.note):'')+'</div><div class="meta"><span>'+l.date+'</span></div></div></div>').join('')+'</div>':'';
+  const META={'words':['单词量','个'],'listening':['听力','篇'],'reading':['阅读','篇'],'speaking':['口语','次']};
+  const tabs=[['words','单词量'],['listening','听力'],['reading','阅读'],['speaking','口语']];
+  const cur=ui.engTab||'words';const [mn,mu]=META[cur];
+  let g='<div class="bigtabs">'+tabs.map(([v,n])=>'<span class="bt'+(cur===v?' on':'')+'" data-act="eng-tab" data-v="'+v+'">'+n+'</span>').join('')+'</div>';
+  // 当前专项：统计 + 记录 + 记录列表
+  const logs=(e.logs||[]).filter(l=>l.type===cur);
+  g+='<div class="card"><h3>📊 '+mn+' <span class="tag-mini">累计 '+e[cur]+' '+mu+'</span></h3><div class="form-grid"><div class="fld"><label>本次数量（'+mu+'）</label><input type="number" id="eng-qty" value="10" min="0"></div><div class="fld"><label>备注</label><input type="text" id="eng-note" placeholder="学了什么…"></div></div><button class="btn" data-act="eng-log">记录</button></div>';
+  g+=logs.length?'<div class="card"><h3>📝 '+mn+'学习记录 <span class="tag-mini">'+logs.length+' 条</span></h3>'+logs.slice().reverse().slice(0,15).map(l=>'<div class="item"><div class="grow"><div class="txt">'+l.qty+' '+mu+(l.note?' · '+esc(l.note):'')+'</div><div class="meta"><span>'+l.date+'</span></div></div></div>').join('')+'</div>':'<div class="empty">暂无'+mn+'学习记录</div>';
+  g+='<div class="card" style="margin-top:16px"><h3>🎯 考试类型与学习计划</h3><div class="add-row" style="margin-bottom:12px"><span style="font-size:12.5px;color:var(--ink-soft)">当前选择</span><select data-change="eng-exam">'+EXAM_TYPES.map(x=>'<option'+(e.examType===x?' selected':'')+'>'+x+'</option>').join('')+'</select></div>'+engPlan(e.examType)+'</div>';
   return pageHead('📕 英语学习','单词 · 听力 · 阅读 · 口语')+g;
 }
 function engPlan(exam){
@@ -833,7 +878,8 @@ document.body.addEventListener('click',e=>{
     case 'ex-log':{const dur=+$('#ex-dur').value||0;if(!dur)break;state.exercise.logs.push({date:todayKey(),type:ui.exerciseType,dur:dur,note:$('#ex-note').value.trim()});saveState();render();break;}
     case 'ex-del':{state.exercise.logs.splice(+el.dataset.i,1);saveState();render();break;}
     case 'wt-add':{const v=+$('#wt-val').value;if(!v)break;const w=state.exercise.weights;const idx=w.findIndex(x=>x.date===todayKey());if(idx>-1)w[idx].weight=v;else w.push({date:todayKey(),weight:v});saveState();render();break;}
-    case 'eng-log':{const t=$('#eng-type').value,q=+$('#eng-qty').value||0;if(!q)break;state.english[t]+=q;state.english.logs.push({date:todayKey(),type:t,qty:q,note:$('#eng-note').value.trim()});saveState();render();break;}
+    case 'eng-tab':ui.engTab=el.dataset.v;render();break;
+    case 'eng-log':{const t=ui.engTab||'words',q=+$('#eng-qty').value||0;if(!q)break;state.english[t]+=q;state.english.logs.push({date:todayKey(),type:t,qty:q,note:$('#eng-note').value.trim()});saveState();render();break;}
     case 'sb-save':{const url=$('#sb-url').value.trim(),key=$('#sb-key').value.trim();localStorage.setItem(KEY_SB,JSON.stringify({url,key}));if(url&&key){initSupabase();}else{setConn('offline');}render();break;}
     case 'sb-test':{initSupabase();break;}
     case 'sb-clear':{localStorage.removeItem(KEY_SB);_supaClient=null;setConn('offline');render();break;}
@@ -884,7 +930,15 @@ async function init(){
   window.addEventListener('online',()=>{if(sbConfig().url)initSupabase();else setConn('offline');});
   window.addEventListener('offline',()=>setConn('offline'));
 }
+// 实时时钟（总览 Hero）
+function tickClock(){
+  const el=document.getElementById('hClock');if(!el)return;
+  const d=new Date();
+  el.textContent=pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+}
+setInterval(tickClock,1000);
 init();
+tickClock();
 </script>
 
 
