@@ -293,7 +293,7 @@ textarea{resize:vertical;width:100%}
   <main><div class="wrap" id="main"></div></main>
 
   <!-- 手机底栏 -->
-  <div class="tabbar" id="tabbar"><div class="tab on" data-act="nav" data-view="overview"><span class="ico">🏠</span>总览</div><div class="tab" data-act="nav" data-view="todos"><span class="ico">📋</span>日课</div><div class="tab" data-act="nav" data-view="checkin"><span class="ico">🌿</span>打卡</div><div class="tab" data-act="nav" data-view="ideas"><span class="ico">⭐</span>速记</div><div class="tab" data-act="nav" data-view="overview"><span class="ico">🧭</span>更多</div></div>
+  <div class="tabbar" id="tabbar"><div class="tab on" data-act="nav" data-view="overview"><span class="ico">🏠</span>总览</div><div class="tab" data-act="nav" data-view="todos"><span class="ico">📋</span>日课</div><div class="tab" data-act="nav" data-view="checkin"><span class="ico">🌿</span>打卡</div><div class="tab" data-act="nav" data-view="ideas"><span class="ico">⭐</span>速记</div><div class="tab" data-act="nav" data-view="more"><span class="ico">🧭</span>更多</div></div>
 </div>
 
 <script>
@@ -500,7 +500,7 @@ function renderNav(){
   }).join('');
 }
 function renderTabs(){
-  $('#tabbar').innerHTML=TABS.map(([k,i,n])=>'<div class="tab'+(ui.view===k||(k==='more'&&!TABS.some(([t])=>t===ui.view))?' on':'')+'" data-act="nav" data-view="'+(k==='more'?'overview':k)+'"><span class="ico">'+i+'</span>'+n+'</div>').join('');
+  $('#tabbar').innerHTML=TABS.map(([k,i,n])=>'<div class="tab'+(ui.view===k||(k==='more'&&!TABS.some(([t])=>t===ui.view))?' on':'')+'" data-act="nav" data-view="'+k+'"><span class="ico">'+i+'</span>'+n+'</div>').join('');
 }
 function pageHead(title,sub){return'<div class="page-head"><h2>'+title+'</h2><span class="sub">'+sub+'</span></div>';}
 
@@ -917,9 +917,9 @@ document.body.addEventListener('change',e=>{
 
 /* ====== 手机端"更多"页面 ====== */
 function vMoreMobile(){
-  const items=[['academic','📖','学术研究','论文进度'],['accp','🔥','个人公众号','发文统计'],['accw','💼','工作公众号','发文统计'],['concept','🎯','观念工夫','观念记录'],['novel','✒️','小说创作','创作笔记'],['reading','📝','读书札记','阅读笔记'],['english','📕','英语学习','单词/听力/阅读/口语'],['exercise','💪','运动锻炼','运动/体重记录'],['finance','💰','财经资讯','外部渠道'],['ainews','🤖','AI资讯','外部渠道'],['ideas','⭐','灵感速记','随手记'],['settings','⚙️','设置','同步/备份']];
+  const items=[['academic','📖','学术进度','论文进度'],['accp','🔥','个人公众号','发文统计'],['accw','💼','工作公众号','发文统计'],['concept','🎯','观念工夫','观念记录'],['novel','✒️','小说字数','创作笔记'],['reading','📝','读书札记','阅读笔记'],['english','📕','英语学习','单词/听力/阅读/口语'],['exercise','💪','运动锻炼','运动/体重记录'],['finance','💰','财经资讯','外部渠道'],['ainews','🤖','AI资讯','外部渠道'],['settings','⚙️','设置','同步/备份']];
   const g='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">'+items.map(([v,i,n,s])=>'<div class="card" style="cursor:pointer;margin:0;padding:15px 14px" data-act="nav" data-view="'+v+'"><div style="font-size:22px">'+i+'</div><div style="font-family:Noto Serif SC,serif;font-size:14.5px;font-weight:700;letter-spacing:1px;margin-top:5px">'+n+'</div><div style="font-size:11px;color:var(--ink-faint);margin-top:1px">'+s+'</div></div>').join('')+'</div>';
-  return pageHead('🧭 更多模块','学术 · 公众号 · 观念 · 小说 · 札记 · 英语 · 运动 · 资讯 · 灵感 · 设置')+g;
+  return pageHead('🧭 更多模块','学术 · 公众号 · 观念 · 小说 · 札记 · 英语 · 运动 · 资讯 · 设置')+g;
 }
 
 /* 覆盖手机端更多 */
