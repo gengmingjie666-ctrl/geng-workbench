@@ -143,6 +143,7 @@ textarea{resize:vertical;width:100%}
 .cal-cell{min-height:52px;border:1px solid var(--line);border-radius:8px;padding:3px 5px;font-size:11px;background:#fffdf6;cursor:pointer;position:relative;transition:all .12s}
 .cal-cell:hover{border-color:var(--green)}
 .cal-cell.today{border-color:var(--red);border-width:2px}
+.cal-cell.sel{background:#f6e7df;box-shadow:0 0 0 2px var(--red) inset}
 .cal-cell.other{opacity:.35}
 .cal-cell .dn{font-weight:700;color:var(--ink-soft)}
 .cal-cell.today .dn{color:var(--red)}
@@ -155,6 +156,17 @@ textarea{resize:vertical;width:100%}
 .mood-pick .m{font-size:32px;cursor:pointer;opacity:.5;transition:all .15s;user-select:none}
 .mood-pick .m:hover{opacity:.8;transform:scale(1.1)}
 .mood-pick .m.on{opacity:1;transform:scale(1.15)}
+/* ====== 当日详情 ====== */
+.day-detail{margin-top:14px;border-top:1px dashed var(--line);padding-top:12px}
+.day-detail .dd-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.day-detail .dd-date{font-family:"Noto Serif SC",serif;font-size:15px;font-weight:700;letter-spacing:1px;color:var(--ink)}
+.day-detail .dd-stats{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.day-detail .dd-stats .tag-mini{margin:0}
+.dd-ci{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 4px}
+.dd-ci span{font-size:11.5px;padding:3px 10px;border-radius:20px;border:1px solid var(--line);color:var(--ink-faint);background:#fffdf6}
+.dd-ci span.on{background:var(--green-deep);border-color:var(--green-deep);color:#f4eeda}
+.dd-back{font-size:12px;color:var(--green);cursor:pointer;border:1px solid var(--green);border-radius:8px;padding:3px 12px;background:none;white-space:nowrap}
+.dd-back:active{background:var(--green);color:#fff}
 
 /* ====== 论文 ====== */
 .paper{background:#fffdf6;border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
@@ -458,6 +470,7 @@ const $=s=>document.querySelector(s);
 function pad(n){return n<10?'0'+n:''+n}
 function todayKey(d){d=d||new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
 function todayCN(){const d=new Date();return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 · 星期'+'日一二三四五六'[d.getDay()];}
+function dateCN(dk){const[yy,mm,dd]=dk.split('-').map(Number);const wd='日一二三四五六'[new Date(yy,mm-1,dd).getDay()];return yy+'年'+mm+'月'+dd+'日 · 星期'+wd;}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function nl2br(s){return esc(s).replace(/\n/g,'<br>');}
@@ -474,7 +487,7 @@ function accPublished(a){return yearRecords(a.records).length;}
 function badge(tag,color){return'<span class="badge" style="background:'+color+'">'+esc(tag)+'</span>';}
 
 /* ====== UI 状态 ====== */
-const ui={view:'overview',calMonth:todayKey().slice(0,7),todoTag:'all',readCat:'all',ideaType:'all',ideaQuick:'文章选题',novelTab:'素材',conceptCat:'all',accKey:'personal',accStatus:'all',editId:null,exerciseType:'跑步',engTab:'words'};
+const ui={view:'overview',calMonth:todayKey().slice(0,7),calSel:todayKey(),todoTag:'all',readCat:'all',ideaType:'all',ideaQuick:'文章选题',novelTab:'素材',conceptCat:'all',accKey:'personal',accStatus:'all',editId:null,exerciseType:'跑步',engTab:'words'};
 const VIEWS={
   overview:{ico:'🏠',name:'总览'},
   todos:{ico:'📋',name:'今日日课'},
@@ -549,11 +562,8 @@ function vOverview(){
   const nP=accPublished(pa),nW=accPublished(pw);
   // 1. 顶部：欢迎文案 + 鼓励语 + 实时日期时间
   let g='<div class="hero"><div class="h-date">'+todayCN()+'</div><div class="h-welcome">'+welcomeText()+'</div><div class="h-cheer">「'+cheerOfDay()+'」</div><div class="h-clock"><div class="t" id="hClock">--:--:--</div><div class="s">实时时间</div></div></div>';
-  // 2. 日历 + 今日待办 合并区块（完成后划线保留，不隐藏）
-  const todayTodos=state.todos.filter(x=>x.date===t);
-  g+='<div class="card"><h3>📅 日历 · 今日待办 <span class="tag-mini">今日 '+todayTodos.filter(x=>x.done).length+'/'+todayTodos.length+' 完成</span></h3>'+calInner(true)+
-    '<div class="sec-title" style="margin-top:12px">当日待办 · 完成后划线保留</div>'+
-    (todayTodos.length?todayTodos.map(todoItem).join(''):'<div class="empty">今日暂无待办，可在下方「今日日课」添加</div>')+'</div>';
+  // 2. 日历 + 当日待办 合并区块（点击日期查看当日任务；完成后划线保留，不隐藏）
+  g+='<div class="card"><h3>📅 日历 · 当日任务 <span class="tag-mini">点击任意日期查看</span></h3>'+calInner(false)+dayDetail(ui.calSel||t)+'</div>';
   // 3. 今日修身
   const ci=state.checkins[t]||{};
   g+='<div class="card"><h3>🌿 今日修身 <span class="tag-mini">'+ciCount(t)+'/6</span></h3><div class="ci-grid">'+CI_ITEMS.map(([k,n])=>'<div class="ci'+(ci[k]?' on':'')+'" data-act="ci-toggle" data-k="'+k+'"><div class="name">'+n+'</div><div class="st">'+(ci[k]?'已完成':'未完成')+'</div></div>').join('')+'</div></div>';
@@ -593,14 +603,32 @@ function calInner(showMoodPicker){
     const total=dayTodos.length+(ci>0?6:0);
     const done=doneCnt+ci;
     const pct=total?Math.round(done/total*100):0;
-    cells+='<div class="cal-cell'+(isToday?' today':'')+'" data-act="cal-day" data-d="'+dk+'"><div class="dn">'+d+'</div>'+(moodEmoji?'<div class="mood">'+moodEmoji+'</div>':'')+(total?'<div class="ci-bar"><i style="width:'+pct+'%"></i></div>':'')+'</div>';
+    cells+='<div class="cal-cell'+(isToday?' today':'')+(ui.calSel===dk?' sel':'')+'" data-act="cal-day" data-d="'+dk+'"><div class="dn">'+d+'</div>'+(moodEmoji?'<div class="mood">'+moodEmoji+'</div>':'')+(total?'<div class="ci-bar"><i style="width:'+pct+'%"></i></div>':'')+'</div>';
   }
-  const moodPicker=showMoodPicker?'<div class="mood-pick">'+MOODS.map(([k,e,n])=>'<span class="m'+(state.moods[today]===k?' on':'')+'" data-act="mood-set" data-v="'+k+'" title="'+n+'">'+e+'</span>').join('')+'</div>':'';
+  const sel=ui.calSel||today;
+  const moodPicker=showMoodPicker?'<div class="mood-pick">'+MOODS.map(([k,e,n])=>'<span class="m'+(state.moods[sel]===k?' on':'')+'" data-act="mood-set" data-v="'+k+'" title="'+n+'">'+e+'</span>').join('')+'</div>':'';
   return '<div class="cal-head"><button data-act="cal-prev">‹</button><span class="ym">'+y+'年'+m+'月</span><button data-act="cal-next">›</button></div><div class="cal-grid"><div class="dow">一</div><div class="dow">二</div><div class="dow">三</div><div class="dow">四</div><div class="dow">五</div><div class="dow">六</div><div class="dow">日</div>'+cells+'</div>'+moodPicker;
 }
 function calWidget(showMoodPicker){
   return '<div class="card"><h3>📅 打卡日历 <span class="tag-mini">点击日期记录心情</span></h3>'+calInner(showMoodPicker)+'</div>';
 }
+/* 当日详情：任务（完成划线保留）+ 修身打卡 + 心情 */
+function dayDetail(dk){
+  const t=todayKey();
+  const dayTodos=state.todos.filter(x=>x.date===dk);
+  const doneCnt=dayTodos.filter(x=>x.done).length;
+  const ci=state.checkins[dk]||{};const ciN=ciCount(dk);
+  const mood=state.moods[dk];const moodEmoji=mood?MOODS.find(([k])=>k===mood)[1]:'';
+  const label=dk===t?'今日':(dk===addDays(t,-1)?'昨日':(dk===addDays(t,1)?'明日':''));
+  let h='<div class="day-detail"><div class="dd-head"><span class="dd-date">'+(label?'<span style="color:var(--red);margin-right:6px">'+label+'</span>':'')+dateCN(dk)+'</span>'+(moodEmoji?'<span style="font-size:20px">'+moodEmoji+'</span>':'');
+  h+='<span class="dd-stats"><span class="tag-mini">日课 '+doneCnt+'/'+dayTodos.length+'</span><span class="tag-mini">修身 '+ciN+'/6</span>'+(dk!==t?'<button class="dd-back" data-act="cal-today">回到今日</button>':'')+'</span></div>';
+  h+='<div class="dd-ci">'+CI_ITEMS.map(([k,n])=>'<span class="'+(ci[k]?'on':'')+'">'+(ci[k]?'✓ ':'')+n+'</span>').join('')+'</div>';
+  h+='<div class="sec-title" style="margin-top:8px">当日任务 · 完成后划线保留</div>';
+  h+=dayTodos.length?dayTodos.map(todoItem).join(''):'<div class="empty">'+(dk===t?'当日暂无待办，可在下方「今日日课」添加':'这一天没有记录任务')+'</div>';
+  h+='<div class="sec-title" style="margin-top:10px">当日心情</div><div class="mood-pick" style="padding:6px 0 2px">'+MOODS.map(([k,e,n])=>'<span class="m'+(mood===k?' on':'')+'" data-act="mood-set" data-v="'+k+'" title="'+n+'">'+e+'</span>').join('')+'</div>';
+  return h+'</div>';
+}
+function addDays(dk,n){const d=new Date(dk+'T00:00:00');d.setDate(d.getDate()+n);return todayKey(d);}
 
 /* ====== 今日日课 ====== */
 function todoItem(x){
@@ -881,8 +909,9 @@ document.body.addEventListener('click',e=>{
     case 'ov-todo-add':{const t=$('#ov-todo'),g=$('#ov-tag');if(t&&t.value.trim())addTodo(t.value.trim(),g?g.value:'普通');break;}
     case 'cal-prev':ui.calMonth=addMonths(ui.calMonth+'-01',-1).slice(0,7);render();break;
     case 'cal-next':ui.calMonth=addMonths(ui.calMonth+'-01',1).slice(0,7);render();break;
-    case 'cal-day':{/* 点击日历日期 - 切换到该日期的视图（暂只支持今天设心情）*/const d=el.dataset.d;if(d===todayKey()){/* 已显示心情选择器 */}break;}
-    case 'mood-set':{state.moods[todayKey()]=el.dataset.v;saveState();render();break;}
+    case 'cal-day':{const d=el.dataset.d;ui.calSel=d;ui.calMonth=d.slice(0,7);if(ui.view!=='overview'){ui.view='overview';}render();window.scrollTo({top:0,behavior:'smooth'});break;}
+    case 'cal-today':{ui.calSel=todayKey();ui.calMonth=todayKey().slice(0,7);render();break;}
+    case 'mood-set':{state.moods[ui.calSel||todayKey()]=el.dataset.v;saveState();render();break;}
     case 'ex-type':ui.exerciseType=el.dataset.v;render();break;
     case 'ex-log':{const dur=+$('#ex-dur').value||0;if(!dur)break;state.exercise.logs.push({date:todayKey(),type:ui.exerciseType,dur:dur,note:$('#ex-note').value.trim()});saveState();render();break;}
     case 'ex-del':{state.exercise.logs.splice(+el.dataset.i,1);saveState();render();break;}
