@@ -624,7 +624,8 @@ function dayDetail(dk){
   h+='<span class="dd-stats"><span class="tag-mini">日课 '+doneCnt+'/'+dayTodos.length+'</span><span class="tag-mini">修身 '+ciN+'/6</span>'+(dk!==t?'<button class="dd-back" data-act="cal-today">回到今日</button>':'')+'</span></div>';
   h+='<div class="dd-ci">'+CI_ITEMS.map(([k,n])=>'<span class="'+(ci[k]?'on':'')+'">'+(ci[k]?'✓ ':'')+n+'</span>').join('')+'</div>';
   h+='<div class="sec-title" style="margin-top:8px">当日任务 · 完成后划线保留</div>';
-  h+=dayTodos.length?dayTodos.map(todoItem).join(''):'<div class="empty">'+(dk===t?'当日暂无待办，可在下方「今日日课」添加':'这一天没有记录任务')+'</div>';
+  h+='<div class="add-row" style="margin:8px 0 4px"><input type="text" id="dd-text" placeholder="在这天添加任务…（回车即可）" data-enter="todo-add-day" data-d="'+dk+'"><select id="dd-tag" style="width:auto">'+TODO_TAGS.map(x=>'<option>'+x+'</option>').join('')+'</select><button class="btn" data-act="todo-add-day" data-d="'+dk+'">添加</button></div>';
+  h+=dayTodos.length?dayTodos.map(todoItem).join(''):'<div class="empty">当日暂无任务，可在上方直接添加</div>';
   h+='<div class="sec-title" style="margin-top:10px">当日心情</div><div class="mood-pick" style="padding:6px 0 2px">'+MOODS.map(([k,e,n])=>'<span class="m'+(mood===k?' on':'')+'" data-act="mood-set" data-v="'+k+'" title="'+n+'">'+e+'</span>').join('')+'</div>';
   return h+'</div>';
 }
@@ -636,7 +637,7 @@ function todoItem(x){
   return'<div class="item'+(x.done?' done':'')+'"><div class="check'+(x.done?' on':'')+'" data-act="todo-toggle" data-id="'+x.id+'">✓</div><div class="grow"><div class="txt">'+esc(x.text)+'</div><div class="meta">'+badge(x.tag,TAG_COLORS[x.tag]||'#8a8371')+(late?'<span style="color:var(--red)">遗留 '+x.date+'</span>':'<span>'+x.date+'</span>')+'</div></div><button class="icon-btn" data-act="todo-edit" data-id="'+x.id+'">✎</button><button class="icon-btn" data-act="todo-del" data-id="'+x.id+'">✕</button></div>';
 }
 function vTodosBody(){
-  let g='<div class="card"><h3>➕ 添加日课</h3><div class="add-row" style="margin-bottom:0"><input type="text" id="td-text" placeholder="今天要做什么…" data-enter="todo-add"><select id="td-tag" style="width:auto">'+TODO_TAGS.map(x=>'<option>'+x+'</option>').join('')+'</select><button class="btn" data-act="todo-add">添加</button></div></div>';
+  let g='<div class="card"><h3>➕ 添加日课</h3><div class="add-row" style="margin-bottom:0"><input type="text" id="td-text" placeholder="要做什么…（可指定日期）" data-enter="todo-add"><select id="td-tag" style="width:auto">'+TODO_TAGS.map(x=>'<option>'+x+'</option>').join('')+'</select><input type="date" id="td-date" value="'+todayKey()+'" style="width:auto"><button class="btn" data-act="todo-add">添加</button></div></div>';
   const f=ui.todoTag;
   const match=x=>f==='all'||x.tag===f;
   const undone=state.todos.filter(x=>!x.done&&match(x)).sort((a,b)=>a.date<b.date?-1:1);
@@ -848,9 +849,9 @@ function render(){
 }
 
 /* ====== 添加待办 ====== */
-function addTodo(text,tag){
+function addTodo(text,tag,date){
   text=text.trim();if(!text)return;
-  state.todos.unshift({id:uid(),text,tag:tag||'普通',done:false,date:todayKey()});
+  state.todos.unshift({id:uid(),text,tag:tag||'普通',done:false,date:date||todayKey()});
   saveState();render();
 }
 
@@ -873,7 +874,8 @@ document.body.addEventListener('click',e=>{
     case 'nav':ui.view=el.dataset.view;render();break;
     case 'sb-toggle':{$('#sidebar').classList.toggle('collapsed');$('#app').classList.toggle('sb-collapsed');el.textContent=$('#sidebar').classList.contains('collapsed')?'›':'‹';break;}
     case 'todo-toggle':{const x=state.todos.find(t=>t.id===el.dataset.id);if(x){x.done=!x.done;saveState();render();}break;}
-    case 'todo-add':{const t=$('#td-text'),g=$('#td-tag');if(t&&t.value.trim())addTodo(t.value.trim(),g?g.value:'普通');break;}
+    case 'todo-add':{const t=$('#td-text'),g=$('#td-tag'),d=$('#td-date');if(t&&t.value.trim())addTodo(t.value.trim(),g?g.value:'普通',d&&d.value?d.value:undefined);break;}
+    case 'todo-add-day':{const t=$('#dd-text'),g=$('#dd-tag');if(t&&t.value.trim())addTodo(t.value.trim(),g?g.value:'普通',el.dataset.d);break;}
     case 'todo-del':state.todos=state.todos.filter(t=>t.id!==el.dataset.id);saveState();render();break;
     case 'todo-edit':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x)break;showEditModal('编辑日课',[{id:'text',label:'内容',value:x.text},{id:'tag',label:'标签',type:'select',options:TODO_TAGS,value:x.tag}],v=>{Object.assign(x,{text:v.text,tag:v.tag});saveState();render();});break;}
     case 'todo-filter':ui.todoTag=el.dataset.v;render();break;
@@ -931,7 +933,8 @@ document.body.addEventListener('keydown',e=>{
   if(e.key!=='Enter')return;
   const el=e.target.closest('[data-enter]');if(!el)return;
   const act=el.dataset.enter;
-  if(act==='todo-add'){const g=$('#td-tag');addTodo(el.value.trim(),g?g.value:'普通');}
+  if(act==='todo-add'){const g=$('#td-tag'),d=$('#td-date');addTodo(el.value.trim(),g?g.value:'普通',d&&d.value?d.value:undefined);}
+  else if(act==='todo-add-day'){const g=$('#dd-tag');addTodo(el.value.trim(),g?g.value:'普通',el.dataset.d);}
   else if(act==='idea-add'){const v=el.value.trim();if(v){state.ideas.unshift({id:uid(),type:ui.ideaQuick,text:v,date:todayKey()});saveState();render();}}
   else if(act==='ch-add'){const p=state.papers.find(p=>p.id===el.dataset.p);if(p&&el.value.trim()){p.chapters.push({name:el.value.trim(),done:false});saveState();render();}}
   else if(act==='acc-topic'){const k=el.dataset.k;if(el.value.trim()){const sel=document.getElementById('acc-topic-status-'+k);state.accounts[k].topics.push({id:uid(),text:el.value.trim(),status:sel?sel.value:'未成文',date:todayKey()});saveState();render();}}
