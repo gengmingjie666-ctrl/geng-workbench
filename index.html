@@ -342,7 +342,7 @@ const AI_LINKS=[['🤖','机器之心','AI前沿','https://www.jiqizhixin.com'],
 const KEY_AI='ai_config';
 const HOT_AUTO_SOURCES=[['weibo','微博','🔗','https://weibo.com'],['zhihu','知乎','🔗','https://www.zhihu.com'],['bilibili','B站','🔗','https://www.bilibili.com'],['douyin','抖音','🔗','https://www.douyin.com']];
 const HOT_MANUAL_SOURCES=['小红书','快手','红果短剧','微信视频号','微博','知乎','B站','抖音','其他'];
-const HOT_API_URL='https://api.vvhan.com/api/hotlist';
+const HOT_API_URL='https://60s.viki.moe/v2';
 
 /* ====== 默认数据 ====== */
 function defaultData(){
@@ -359,7 +359,8 @@ function defaultData(){
     reading:[],ideas:[],
     english:{examType:'四级CET-4',words:0,listening:0,reading:0,speaking:0,logs:[]},
     exercise:{logs:[],weights:[]},
-    hottrends:{auto:[],manual:[]}
+    hottrends:{auto:[],manual:[]},
+    ai:{provider:'zhipu',key:''}
   };
 }
 function mergeObj(d,s){
@@ -455,7 +456,10 @@ async function syncFromCloud(){
 /* ====== 状态管理 ====== */
 let state=defaultData();
 /* ====== AI 配置 ====== */
-function aiConfig(){try{return JSON.parse(localStorage.getItem(KEY_AI)||'{}');}catch(e){return{};}}
+function aiConfig(){
+  if(state&&state.ai)return state.ai;
+  try{return JSON.parse(localStorage.getItem(KEY_AI)||'{}');}catch(e){return{};}
+}
 async function callAI(prompt){
   const cfg=aiConfig();if(!cfg.key)return{error:'未配置 AI 服务，请到设置中填写 API Key'};
   const isZhipu=cfg.provider!=='deepseek';
@@ -469,13 +473,14 @@ async function callAI(prompt){
 }
 /* ====== 热点 API ====== */
 async function fetchHotList(type){
+  const typeMap={weibo:'weibo',zhihu:'zhihu',bilibili:'bili',douyin:'douyin'};
+  const ep=typeMap[type]||type;
   try{
-    const r=await fetch(HOT_API_URL+'/'+type,{headers:{'Accept':'application/json'}});
+    const r=await fetch(HOT_API_URL+'/'+ep,{headers:{'Accept':'application/json'}});
     if(!r.ok)throw new Error(r.status);
     const d=await r.json();
-    if(d.success&&d.data)return d.data;
-    if(Array.isArray(d))return d;
-    return[];
+    if(d.code===200&&Array.isArray(d.data))return d.data;
+    return null;
   }catch{return null;}
 }
 async function fetchAllHot(){
@@ -914,8 +919,8 @@ function hotAutoCard(title,items,sourceName,sourceUrl){
   if(!items||!items.length)return'<div class="card" style="margin-bottom:12px"><h3>'+title+' <span class="tag-mini">暂不可用</span></h3><div class="empty">接口暂时不可用，稍后刷新</div></div>';
   return'<div class="card" style="margin-bottom:12px"><h3>'+title+' <span class="tag-mini">'+items.length+'条</span> <a href="'+sourceUrl+'" target="_blank" style="font-size:11px;color:var(--green);margin-left:auto">前往 →</a></h3>'+items.slice(0,15).map((it,i)=>{
     const t=it.title||it.name||it.word||'';
-    const hot=it.hot||it.hotValue||it.heat||'';
-    const link=it.url||it.link||it.mobil_url||'';
+    const hot=it.hot_value||it.hot||it.hotValue||it.heat||'';
+    const link=it.link||it.url||it.mobil_url||'';
     return'<div class="item"><div class="grow"><div class="txt">'+(i<3?'<span style="color:var(--red);font-weight:700">'+(i+1)+'.</span> ':'<span style="color:var(--ink-faint)">'+(i+1)+'.</span> ')+esc(t)+(hot?' <span style="font-size:11px;color:var(--ink-faint)">🔥 '+esc(hot)+'</span>':'')+'</div>'+(link?'<div class="meta"><a href="'+esc(link)+'" target="_blank" style="color:var(--green);font-size:11px">查看原文</a></div>':'')+'</div></div>';
   }).join('')+'</div>';
 }
@@ -953,7 +958,7 @@ function showTopicPicker(hotId,hotType,hotContent){
 /* ====== 设置 ====== */
 function vSettings(){
   const cfg=sbConfig();
-  const aiCfg=aiConfig();
+  const aiCfg=state.ai||{provider:'zhipu',key:''};
   const g='<div class="card"><h3>☁️ Supabase 云端同步</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">填写 Supabase 项目 URL 和 anon key 开启云端同步。<br>未填写时数据仅保存在本地（IndexedDB），不会丢失。<br>需在 Supabase 控制台创建数据表：<code style="background:var(--card-deep);padding:2px 6px;border-radius:4px;font-size:11px">create table workbench (id text primary key, data jsonb, updated_at timestamptz default now());</code></p><div class="form-grid"><div class="fld full"><label>Project URL</label><input type="text" id="sb-url" value="'+esc(cfg.url||'')+'" placeholder="https://xxxx.supabase.co"></div><div class="fld full"><label>Anon Key</label><input type="text" id="sb-key" value="'+esc(cfg.key||'')+'" placeholder="eyJ..."></div></div><button class="btn" data-act="sb-save">保存并连接</button> <button class="btn btn-ghost" data-act="sb-test">测试连接</button> <button class="btn btn-red" data-act="sb-clear" style="margin-left:auto">断开</button></div>'+
   '<div class="card"><h3>🤖 AI 服务配置</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">配置 AI 服务后，「每日热点」板块可自动生成爆款解读。<br>推荐智谱 GLM（注册送 2000 万 tokens 免费额度：<a href="https://bigmodel.cn/console/overview" target="_blank" style="color:var(--green)">bigmodel.cn</a>）</p><div class="form-grid"><div class="fld"><label>服务商</label><select id="ai-provider"><option value="zhipu"'+(aiCfg.provider==='zhipu'?' selected':'')+'>智谱 GLM</option><option value="deepseek"'+(aiCfg.provider==='deepseek'?' selected':'')+'>DeepSeek</option></select></div><div class="fld full"><label>API Key</label><input type="text" id="ai-key" value="'+esc(aiCfg.key||'')+'" placeholder="粘贴你的 API Key…"></div></div><button class="btn" data-act="ai-save">保存</button> <button class="btn btn-ghost" data-act="ai-test">测试连接</button> <button class="btn btn-red" data-act="ai-clear" style="margin-left:auto">清除</button></div>'+
   '<div class="card"><h3>💾 数据管理</h3><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-ghost" data-act="export">导出备份(JSON)</button><button class="btn btn-ghost" data-act="import">导入备份</button><button class="btn btn-red" data-act="reset">清空所有数据</button></div></div>'+
@@ -1057,9 +1062,9 @@ document.body.addEventListener('click',async e=>{
     case 'hot-manual-edit':{const m=state.hottrends.manual.find(x=>x.id===el.dataset.id);if(!m)break;showEditModal('编辑热梗',[{id:'source',label:'来源平台',type:'select',options:HOT_MANUAL_SOURCES,value:m.source},{id:'heat',label:'热度',value:m.heat},{id:'content',label:'内容',type:'textarea',value:m.content},{id:'link',label:'链接',value:m.link}],v=>{Object.assign(m,{source:v.source,heat:v.heat,content:v.content,link:v.link});saveState();render();});break;}
     case 'hot-interpret':{const m=state.hottrends.manual.find(x=>x.id===el.dataset.id);if(!m)break;const btn=el;btn.textContent='⏳ 解读中…';btn.disabled=true;const r=await callAI(aiInterpretPrompt(m.content,m.source));if(r.ok){m.interpretation=r.text;saveState();btn.textContent='✅ 已生成';setTimeout(()=>{render();},500);}else{btn.textContent='❌ 失败';setTimeout(()=>{alert(r.error);btn.textContent='🤖 AI解读';btn.disabled=false;},300);}break;}
     case 'hot-to-topic':{const m=state.hottrends.manual.find(x=>x.id===el.dataset.id);if(m)showTopicPicker(m.id,'manual',m.content);break;}
-    case 'ai-save':{const p=$('#ai-provider'),k=$('#ai-key');localStorage.setItem(KEY_AI,JSON.stringify({provider:p?p.value:'zhipu',key:k?k.value.trim():''}));alert('AI配置已保存');render();break;}
+    case 'ai-save':{const p=$('#ai-provider'),k=$('#ai-key');state.ai={provider:p?p.value:'zhipu',key:k?k.value.trim():''};saveState();alert('AI配置已保存并同步');render();break;}
     case 'ai-test':{const r=await callAI('请回复"连接成功"四个字');if(r.ok)alert('✅ AI连接成功！\n\n回复：'+r.text);else alert('❌ '+r.error);break;}
-    case 'ai-clear':{localStorage.removeItem(KEY_AI);render();break;}
+    case 'ai-clear':{state.ai={provider:'zhipu',key:''};saveState();render();break;}
     case 'export':{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='耿茗傑工作台备份-'+todayKey()+'.json';a.click();break;}
     case 'import':{const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=()=>{const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{state=mergeObj(defaultData(),JSON.parse(r.result));saveState(true);render();alert('导入成功');}catch(err){alert('导入失败：'+err.message);}};r.readAsText(f);};inp.click();break;}
     case 'reset':{if(confirm('确定清空所有数据？此操作不可撤销。')){state=defaultData();saveState(true);render();}break;}
