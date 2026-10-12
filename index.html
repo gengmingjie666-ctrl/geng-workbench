@@ -427,6 +427,7 @@ async function initSupabase(){
     if(error)throw error;
     setConn('online');
     await syncFromCloud();
+    startCloudPolling();
   }catch{setConn('error');_supaClient=null;}
 }
 async function syncToCloud(){
@@ -441,17 +442,36 @@ async function syncToCloud(){
     }catch{setConn('error');}
   },1500);
 }
+let _syncingFromCloud=false;
 async function syncFromCloud(){
-  if(!_supaClient)return;
+  if(!_supaClient||_syncingFromCloud)return;
+  _syncingFromCloud=true;
   try{
     const{data,error}=await _supaClient.from('workbench').select('data,updated_at').eq('id','main').maybeSingle();
     if(error)throw error;
     if(data&&data.data){
       const cloud=data.data;const localTs=await idbGet('updated_at')||0;
       const cloudTs=new Date(data.updated_at).getTime()||0;
-      if(cloudTs>localTs){state=mergeObj(defaultData(),cloud);await idbSet(KEY_STATE,state);await idbSet('updated_at',cloudTs);render();}
+      if(cloudTs>localTs){
+        state=mergeObj(defaultData(),cloud);
+        await idbSet(KEY_STATE,state);
+        await idbSet('updated_at',cloudTs);
+        render();
+      }
     }
-  }catch{}
+  }catch{}finally{_syncingFromCloud=false;}
+}
+function startCloudPolling(){
+  // Poll cloud every 30s when connected
+  setInterval(()=>{if(_supaClient&&_connStatus==='online'&&!_saveTimer&&!_syncTimer)syncFromCloud();},30000);
+  // Pull from cloud when tab becomes visible again
+  document.addEventListener('visibilitychange',()=>{
+    if(!document.hidden&&_supaClient&&_connStatus==='online')syncFromCloud();
+  });
+  // Also pull on window focus (covers some mobile browsers)
+  window.addEventListener('focus',()=>{
+    if(_supaClient&&_connStatus==='online')syncFromCloud();
+  });
 }
 
 /* ====== 状态管理 ====== */
