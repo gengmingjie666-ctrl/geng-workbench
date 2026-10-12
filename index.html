@@ -289,7 +289,7 @@ textarea{resize:vertical;width:100%}
         <p id="todayStr">2026年10月10日 · 星期六</p>
       </div>
     </div>
-    <nav id="nav"><div class="nav-item on" data-act="nav" data-view="overview"><span class="ico">🏠</span><span class="lbl">总览</span></div><div class="nav-item" data-act="nav" data-view="todos"><span class="ico">📋</span><span class="lbl">今日日课</span></div><div class="nav-item" data-act="nav" data-view="checkin"><span class="ico">🌿</span><span class="lbl">修身打卡</span></div><div class="nav-item" data-act="nav" data-view="academic"><span class="ico">📖</span><span class="lbl">学术研究</span></div><div class="nav-item" data-act="nav" data-view="accp"><span class="ico">🔥</span><span class="lbl">个人公众号</span></div><div class="nav-item" data-act="nav" data-view="accw"><span class="ico">💼</span><span class="lbl">工作公众号</span></div><div class="nav-item" data-act="nav" data-view="concept"><span class="ico">🎯</span><span class="lbl">观念工夫</span></div><div class="nav-item" data-act="nav" data-view="novel"><span class="ico">✒️</span><span class="lbl">小说创作</span></div><div class="nav-item" data-act="nav" data-view="reading"><span class="ico">📝</span><span class="lbl">读书札记</span></div><div class="nav-item" data-act="nav" data-view="ideas"><span class="ico">⭐</span><span class="lbl">灵感速记</span></div><div class="nav-item" data-act="nav" data-view="english"><span class="ico">📕</span><span class="lbl">英语学习</span></div><div class="nav-item" data-act="nav" data-view="exercise"><span class="ico">💪</span><span class="lbl">运动锻炼</span></div><div class="nav-item" data-act="nav" data-view="finance"><span class="ico">💰</span><span class="lbl">财经资讯</span></div><div class="nav-item" data-act="nav" data-view="ainews"><span class="ico">🤖</span><span class="lbl">AI资讯</span></div><div class="nav-item" data-act="nav" data-view="settings"><span class="ico">⚙️</span><span class="lbl">设置</span></div></nav>
+    <nav id="nav"><div class="nav-item on" data-act="nav" data-view="overview"><span class="ico">🏠</span><span class="lbl">总览</span></div><div class="nav-item" data-act="nav" data-view="todos"><span class="ico">📋</span><span class="lbl">今日日课</span></div><div class="nav-item" data-act="nav" data-view="checkin"><span class="ico">🌿</span><span class="lbl">修身打卡</span></div><div class="nav-item" data-act="nav" data-view="academic"><span class="ico">📖</span><span class="lbl">学术研究</span></div><div class="nav-item" data-act="nav" data-view="accp"><span class="ico">🔥</span><span class="lbl">个人公众号</span></div><div class="nav-item" data-act="nav" data-view="accw"><span class="ico">💼</span><span class="lbl">工作公众号</span></div><div class="nav-item" data-act="nav" data-view="concept"><span class="ico">🎯</span><span class="lbl">观念工夫</span></div><div class="nav-item" data-act="nav" data-view="novel"><span class="ico">✒️</span><span class="lbl">小说创作</span></div><div class="nav-item" data-act="nav" data-view="reading"><span class="ico">📝</span><span class="lbl">读书札记</span></div><div class="nav-item" data-act="nav" data-view="ideas"><span class="ico">⭐</span><span class="lbl">灵感速记</span></div><div class="nav-item" data-act="nav" data-view="english"><span class="ico">📕</span><span class="lbl">英语学习</span></div><div class="nav-item" data-act="nav" data-view="exercise"><span class="ico">💪</span><span class="lbl">运动锻炼</span></div><div class="nav-item" data-act="nav" data-view="finance"><span class="ico">💰</span><span class="lbl">财经资讯</span></div><div class="nav-item" data-act="nav" data-view="ainews"><span class="ico">🤖</span><span class="lbl">AI资讯</span></div><div class="nav-item" data-act="nav" data-view="hottrends"><span class="ico">🔥</span><span class="lbl">每日热点</span></div><div class="nav-item" data-act="nav" data-view="settings"><span class="ico">⚙️</span><span class="lbl">设置</span></div></nav>
     <div class="foot">
       <span id="connFoot">连接状态：本地</span>
       <button data-act="export">导出备份</button>
@@ -339,6 +339,10 @@ const CHEER_MSGS=['日日不断，功不唐捐。今日全勤，心向光明。'
 const MOODS=[['happy','😊','开心'],['sad','😢','难过'],['calm','😌','平静']];
 const FINANCE_LINKS=[['📈','东方财富','行情资讯','https://www.eastmoney.com'],['💸','新浪财经','财经门户','https://finance.sina.com.cn'],['🏦','华尔街见闻','全球金融','https://wallstreetcn.com'],['💰','雪球','投资社区','https://xueqiu.com'],['📊','同花顺','行情软件','https://www.10jqka.com.cn'],['🏛','财政部','政策法规','http://www.mof.gov.cn'],['🏦','中国人民银行','货币政策','http://www.pbc.gov.cn'],['📋','证监会','监管信息','http://www.csrc.gov.cn']];
 const AI_LINKS=[['🤖','机器之心','AI前沿','https://www.jiqizhixin.com'],['⚛️','量子位','AI资讯','https://www.qbitai.com'],['🌐','OpenAI','官方博客','https://openai.com'],['🧠','Anthropic','Claude','https://www.anthropic.com'],['🤗','HuggingFace','模型库','https://huggingface.co'],['📰','36氪AI','科技资讯','https://www.36kr.com'],['🔬','arXiv','论文预印本','https://arxiv.org'],['💬','AI新榜','AI排行榜','https://www.ai-newrank.com']];
+const KEY_AI='ai_config';
+const HOT_AUTO_SOURCES=[['weibo','微博','🔗','https://weibo.com'],['zhihu','知乎','🔗','https://www.zhihu.com'],['bilibili','B站','🔗','https://www.bilibili.com'],['douyin','抖音','🔗','https://www.douyin.com']];
+const HOT_MANUAL_SOURCES=['小红书','快手','红果短剧','微信视频号','微博','知乎','B站','抖音','其他'];
+const HOT_API_URL='https://api.vvhan.com/api/hotlist';
 
 /* ====== 默认数据 ====== */
 function defaultData(){
@@ -350,11 +354,12 @@ function defaultData(){
       {id:'p3',name:'兴趣论文一',kind:'兴趣论文',chapters:ESSAY_CH.map(n=>({name:n,done:false}))},
       {id:'p4',name:'兴趣论文二',kind:'兴趣论文',chapters:ESSAY_CH.map(n=>({name:n,done:false}))}
     ],
-    accounts:{personal:{target:52,records:[],topics:[]},work:{target:52,records:[],topics:[]}},
+    accounts:{personal:{target:52,records:[],topics:[],articles:[]},work:{target:52,records:[],topics:[],articles:[]}},
     concepts:[],novel:{words:0,stage:'构思',notes:[]},
     reading:[],ideas:[],
     english:{examType:'四级CET-4',words:0,listening:0,reading:0,speaking:0,logs:[]},
-    exercise:{logs:[],weights:[]}
+    exercise:{logs:[],weights:[]},
+    hottrends:{auto:[],manual:[]}
   };
 }
 function mergeObj(d,s){
@@ -449,6 +454,35 @@ async function syncFromCloud(){
 
 /* ====== 状态管理 ====== */
 let state=defaultData();
+/* ====== AI 配置 ====== */
+function aiConfig(){try{return JSON.parse(localStorage.getItem(KEY_AI)||'{}');}catch(e){return{};}}
+async function callAI(prompt){
+  const cfg=aiConfig();if(!cfg.key)return{error:'未配置 AI 服务，请到设置中填写 API Key'};
+  const isZhipu=cfg.provider!=='deepseek';
+  const url=isZhipu?'https://open.bigmodel.cn/api/paas/v4/chat/completions':'https://api.deepseek.com/chat/completions';
+  const model=isZhipu?'glm-4-flash':'deepseek-chat';
+  try{
+    const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},body:JSON.stringify({model,messages:[{role:'user',content:prompt}],temperature:0.8,max_tokens:1000})});
+    if(!resp.ok){const t=await resp.text();return{error:'API错误('+resp.status+'): '+t.slice(0,200)};}
+    const d=await resp.json();return{ok:true,text:d.choices?.[0]?.message?.content||'(空)'};}
+  catch(e){return{error:'网络错误: '+e.message};}
+}
+/* ====== 热点 API ====== */
+async function fetchHotList(type){
+  try{
+    const r=await fetch(HOT_API_URL+'/'+type,{headers:{'Accept':'application/json'}});
+    if(!r.ok)throw new Error(r.status);
+    const d=await r.json();
+    if(d.success&&d.data)return d.data;
+    if(Array.isArray(d))return d;
+    return[];
+  }catch{return null;}
+}
+async function fetchAllHot(){
+  const[weibo,zhihu,bili,douyin]=await Promise.all([fetchHotList('weibo'),fetchHotList('zhihu'),fetchHotList('bilibili'),fetchHotList('douyin')]);
+  return{weibo,zhihu,bili,douyin};
+}
+
 async function loadState(){
   const local=await idbGet(KEY_STATE);
   if(local)state=mergeObj(defaultData(),local);
@@ -487,7 +521,7 @@ function accPublished(a){return yearRecords(a.records).length;}
 function badge(tag,color){return'<span class="badge" style="background:'+color+'">'+esc(tag)+'</span>';}
 
 /* ====== UI 状态 ====== */
-const ui={view:'overview',calMonth:todayKey().slice(0,7),calSel:todayKey(),todoTag:'all',readCat:'all',ideaType:'all',ideaQuick:'文章选题',novelTab:'素材',conceptCat:'all',accKey:'personal',accStatus:'all',editId:null,exerciseType:'跑步',engTab:'words'};
+const ui={view:'overview',calMonth:todayKey().slice(0,7),calSel:todayKey(),todoTag:'all',readCat:'all',ideaType:'all',ideaQuick:'文章选题',novelTab:'素材',conceptCat:'all',accKey:'personal',accStatus:'all',editId:null,exerciseType:'跑步',engTab:'words',hotTab:'auto',hotManualSource:'小红书'};
 const VIEWS={
   overview:{ico:'🏠',name:'总览'},
   todos:{ico:'📋',name:'今日日课'},
@@ -503,6 +537,7 @@ const VIEWS={
   exercise:{ico:'💪',name:'运动锻炼'},
   finance:{ico:'💰',name:'财经资讯'},
   ainews:{ico:'🤖',name:'AI资讯'},
+  hottrends:{ico:'🔥',name:'每日热点'},
   settings:{ico:'⚙️',name:'设置'}
 };
 const TABS=[['overview','🏠','总览'],['todos','📋','日课'],['checkin','🌿','打卡'],['ideas','⭐','速记'],['more','🧭','更多']];
@@ -704,6 +739,33 @@ function vAccount(key,ico,title,desc){
   if(a.records.length){
     g+='<div class="card"><h3>📝 发文记录</h3>'+yearRecords(a.records).slice(-10).reverse().map(d=>'<div class="item"><div class="grow txt">📝 '+d+'</div><button class="icon-btn" data-act="acc-rec-del" data-k="'+key+'" data-d="'+d+'">✕</button></div>').join('')+'</div>';
   }
+  // 文章数据卡片
+  const arts=a.articles||[];
+  g+='<div class="card"><h3>📊 文章数据 <span class="tag-mini">'+arts.length+' 篇</span></h3>';
+  g+='<div class="add-row" style="margin-bottom:12px"><button class="btn" data-act="acc-art-add" data-k="'+key+'">➕ 添加文章数据</button>'+(key==='personal'?'<button class="btn btn-ghost" data-act="acc-art-import" data-k="'+key+'">📋 粘贴导入</button>':'')+'</div>';
+  if(arts.length){
+    // 趋势简报
+    const validArts=arts.filter(a=>a.firstReads||a.day7Reads);
+    if(validArts.length>=2){
+      const maxR=Math.max(...validArts.map(a=>a.day7Reads||a.firstReads||0));
+      g+='<div style="background:var(--card-deep);border:1px dashed var(--line);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;line-height:1.8"><b style="color:var(--red)">📈 趋势简报</b><br>共 '+validArts.length+' 篇有数据 · 平均首发 '+Math.round(validArts.map(a=>a.firstReads||0).reduce((s,v)=>s+v,0)/validArts.length)+' 阅读 · 平均7日 '+Math.round(validArts.map(a=>a.day7Reads||0).reduce((s,v)=>s+v,0)/validArts.length)+' 阅读<br>最高7日阅读：<b>'+maxR+'</b>（'+esc(validArts.find(a=>(a.day7Reads||0)===maxR)?.title||'')+'）</div>';
+    }
+    g+=arts.slice().reverse().map(ar=>{
+      const gr=ar.day7Reads&&ar.firstReads?Math.round((ar.day7Reads-ar.firstReads)/ar.firstReads*100):0;
+      const maxR=Math.max(ar.firstReads||0,ar.day7Reads||0,1);
+      return'<div class="rec-card"><div class="r-head">'+badge(ar.date||'','')+(ar.link?'<a href="'+esc(ar.link)+'" target="_blank" style="color:var(--green);font-size:13px;font-weight:600">'+esc(ar.title||'未命名')+'</a>':'<b>'+esc(ar.title||'未命名')+'</b>')+'<span class="date">'+(ar.date||'')+'</span><button class="icon-btn" data-act="acc-art-edit" data-k="'+key+'" data-id="'+ar.id+'">✎</button><button class="icon-btn" data-act="acc-art-del" data-k="'+key+'" data-id="'+ar.id+'">✕</button></div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">'+
+      '<div style="font-size:12px;color:var(--ink-soft)">首发：阅读 <b style="color:var(--ink)">'+(ar.firstReads||'-')+'</b> · 点赞 <b style="color:var(--ink)">'+(ar.firstLikes||'-')+'</b> · 在看 <b style="color:var(--ink)">'+(ar.firstWow||'-')+'</b></div>'+
+      '<div style="font-size:12px;color:var(--ink-soft)">7日：阅读 <b style="color:var(--ink)">'+(ar.day7Reads||'-')+'</b> · 点赞 <b style="color:var(--ink)">'+(ar.day7Likes||'-')+'</b> · 在看 <b style="color:var(--ink)">'+(ar.day7Wow||'-')+'</b></div>'+
+      '</div>'+
+      (ar.firstReads&&ar.day7Reads?'<div class="bar-lg" style="margin-top:8px"><i style="width:'+Math.round((ar.day7Reads/maxR)*100)+'%;background:var(--green)"></i></div><div style="font-size:11px;color:var(--ink-faint);margin-top:2px">增长 '+gr+'%</div>':'')+
+      (ar.shares||ar.comments?'<div style="font-size:11px;color:var(--ink-faint);margin-top:4px">转发 '+(ar.shares||'-')+' · 留言 '+(ar.comments||'-')+'</div>':'')+
+      '</div>';
+    }).join('');
+  }else{
+    g+='<div class="empty">还没有文章数据，发文后点击「添加文章数据」录入</div>';
+  }
+  g+='</div>';
   return pageHead(ico+' '+title,desc)+g;
 }
 
@@ -829,17 +891,78 @@ function vAINews(){
   return pageHead('🤖 AI资讯','主流AI资讯渠道')+g;
 }
 
+/* ====== 每日热点 ====== */
+function vHotTrends(){
+  const h=state.hottrends||(state.hottrends={auto:[],manual:[]});
+  const ai=aiConfig();
+  let g='<div class="bigtabs"><span class="bt'+(ui.hotTab==='auto'?' on':'')+'" data-act="hot-tab" data-v="auto">📡 自动热榜</span><span class="bt'+(ui.hotTab==='manual'?' on':'')+'" data-act="hot-tab" data-v="manual">✍️ 手动记录</span><span class="bt'+(ui.hotTab==='bank'?' on':'')+'" data-act="hot-tab" data-v="bank">📚 热梗库</span></div>';
+  if(ui.hotTab==='auto'){
+    g+='<div class="card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><h3 style="margin:0">📡 今日热榜</h3><button class="btn btn-ghost" data-act="hot-refresh" style="margin-left:auto">刷新</button></div><div id="hot-auto-area" style="min-height:200px"><div style="text-align:center;color:var(--ink-faint);padding:40px 0;font-size:13px">点击「刷新」获取今日热榜…</div></div></div>';
+  }else if(ui.hotTab==='manual'){
+    g+='<div class="card"><h3>✍️ 记一条热梗/热评</h3><div class="form-grid"><div class="fld"><label>来源平台</label><select id="hm-source">'+HOT_MANUAL_SOURCES.map(s=>'<option'+(ui.hotManualSource===s?' selected':'')+'>'+s+'</option>').join('')+'</select></div><div class="fld"><label>热度(可选)</label><input type="text" id="hm-heat" placeholder="如 12.5万讨论"></div><div class="fld full"><label>内容</label><textarea rows="3" id="hm-content" placeholder="热梗内容、热评原文…"></textarea></div><div class="fld full"><label>链接(可选)</label><input type="text" id="hm-link" placeholder="https://…"></div></div><button class="btn" data-act="hot-manual-add">保存记录</button></div>';
+    const manual=h.manual||[];
+    g+=manual.length?'<div class="card"><h3>📋 热梗记录 <span class="tag-mini">'+manual.length+' 条</span></h3>'+manual.slice().reverse().map(m=>'<div class="rec-card"><div class="r-head">'+badge(m.source,'#b5651d')+(m.heat?'<span style="font-size:11px;color:var(--ink-faint)">🔥 '+esc(m.heat)+'</span>':'')+'<span class="date">'+m.date+'</span><button class="icon-btn" data-act="hot-manual-edit" data-id="'+m.id+'">✎</button><button class="icon-btn" data-act="hot-manual-del" data-id="'+m.id+'">✕</button></div><div class="rec-body">'+nl2br(m.content)+(m.link?'<p><a href="'+esc(m.link)+'" target="_blank" style="color:var(--green)">查看原文 →</a></p>':'')+'</div>'+(m.interpretation?'<div style="background:var(--card-deep);border:1px dashed var(--line);border-radius:8px;padding:10px 12px;margin-top:8px;font-size:12.5px;line-height:1.8"><b style="color:var(--red)">AI解读：</b><br>'+nl2br(m.interpretation)+'</div>':'')+'<div style="display:flex;gap:6px;margin-top:8px"><button class="btn btn-ghost" style="font-size:12px;padding:4px 12px" data-act="hot-interpret" data-id="'+m.id+'" data-type="manual">🤖 AI解读</button><button class="btn btn-ghost" style="font-size:12px;padding:4px 12px" data-act="hot-to-topic" data-id="'+m.id+'" data-type="manual">📝 转入选题</button></div></div>').join(''):'<div class="empty">还没有热梗记录</div></div>';
+  }else{
+    // 热梗库 - 展示所有有解读的条目
+    const all=[...(h.manual||[]).filter(m=>m.interpretation)];
+    g+=all.length?'<div class="card"><h3>📚 热梗解读库 <span class="tag-mini">'+all.length+' 条</span></h3>'+all.slice().reverse().map(m=>'<div class="rec-card"><div class="r-head">'+badge(m.source,'#b5651d')+'<span class="date">'+m.date+'</span></div><div class="rec-body">'+nl2br(m.content)+'</div><div style="background:var(--card-deep);border:1px dashed var(--line);border-radius:8px;padding:10px 12px;margin-top:8px;font-size:12.5px;line-height:1.8"><b style="color:var(--red)">AI解读：</b><br>'+nl2br(m.interpretation)+'</div></div>').join(''):'<div class="empty">还没有带解读的热梗，去「手动记录」添加后点「AI解读」</div></div>';
+  }
+  if(!ai.key)g+='<div class="card" style="border:1px dashed var(--ochre)"><p style="font-size:12.5px;color:var(--ochre);line-height:1.8">⚠️ 未配置 AI 服务。到「设置 → AI服务配置」填写 API Key 后，即可对热梗生成爆款解读（流量潜力、改编方向、切入角度）。</p></div>';
+  return pageHead('🔥 每日热点','热榜 · 热梗 · AI爆款解读')+g;
+}
+function hotAutoCard(title,items,sourceName,sourceUrl){
+  if(!items||!items.length)return'<div class="card" style="margin-bottom:12px"><h3>'+title+' <span class="tag-mini">暂不可用</span></h3><div class="empty">接口暂时不可用，稍后刷新</div></div>';
+  return'<div class="card" style="margin-bottom:12px"><h3>'+title+' <span class="tag-mini">'+items.length+'条</span> <a href="'+sourceUrl+'" target="_blank" style="font-size:11px;color:var(--green);margin-left:auto">前往 →</a></h3>'+items.slice(0,15).map((it,i)=>{
+    const t=it.title||it.name||it.word||'';
+    const hot=it.hot||it.hotValue||it.heat||'';
+    const link=it.url||it.link||it.mobil_url||'';
+    return'<div class="item"><div class="grow"><div class="txt">'+(i<3?'<span style="color:var(--red);font-weight:700">'+(i+1)+'.</span> ':'<span style="color:var(--ink-faint)">'+(i+1)+'.</span> ')+esc(t)+(hot?' <span style="font-size:11px;color:var(--ink-faint)">🔥 '+esc(hot)+'</span>':'')+'</div>'+(link?'<div class="meta"><a href="'+esc(link)+'" target="_blank" style="color:var(--green);font-size:11px">查看原文</a></div>':'')+'</div></div>';
+  }).join('')+'</div>';
+}
+async function loadHotAuto(){
+  const area=document.getElementById('hot-auto-area');if(!area)return;
+  area.innerHTML='<div style="text-align:center;color:var(--ink-faint);padding:40px 0;font-size:13px">⏳ 正在获取热榜…</div>';
+  const d=await fetchAllHot();
+  let html='';
+  html+=hotAutoCard('微博热搜',d.weibo,'微博','https://s.weibo.com/top/summary');
+  html+=hotAutoCard('知乎热榜',d.zhihu,'知乎','https://www.zhihu.com/hot');
+  html+=hotAutoCard('B站热门',d.bili,'B站','https://www.bilibili.com/v/popular/all');
+  html+=hotAutoCard('抖音热点',d.douyin,'抖音','https://www.douyin.com');
+  if(!html)html='<div class="empty">所有接口暂不可用，稍后刷新</div>';
+  area.innerHTML=html;
+}
+function aiInterpretPrompt(content,source){
+  return'你是一个爆款内容分析专家。以下是一条来自「'+source+'」的热点/热梗内容：\n\n"'+content+'"\n\n请从以下4个维度分析这条内容能否做成爆款文章或视频：\n1. 梗的来源与传播逻辑：这个梗/热点是怎么来的，为什么能火\n2. 流量潜力评估：还能火多久、哪些人群会感兴趣、预估流量级别\n3. 改编方向：适合做成公众号文章还是短视频（或两者都适合），给出2-3个标题参考和切入角度\n4. 风险提示：涉及哪些敏感边界、哪些平台容易限流\n\n用简洁有力的中文回答，每个维度2-3句话，不要客套话。';
+}
+function showTopicPicker(hotId,hotType,hotContent){
+  const bg=document.createElement('div');bg.className='modal-bg';
+  bg.innerHTML='<div class="modal"><h3>📝 转入选题库</h3><p style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;line-height:1.6">将此热梗转入公众号选题储备库。可以同时选两个：</p><div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px"><input type="checkbox" id="tp-personal" checked> 🔥 个人公众号（茗傑的知行漫记）</label><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px"><input type="checkbox" id="tp-work"> 💼 工作公众号（中国研究生）</label></div><div class="btns"><button class="btn" data-act="tp-confirm">确认转入</button><button class="btn btn-ghost" data-act="tp-cancel">取消</button></div></div>';
+  document.body.appendChild(bg);
+  bg.querySelector('[data-act="tp-confirm"]').onclick=()=>{
+    const p=bg.querySelector('#tp-personal').checked;
+    const w=bg.querySelector('#tp-work').checked;
+    if(p){state.accounts.personal.topics.push({id:uid(),text:hotContent,status:'未成文',date:todayKey()});}
+    if(w){state.accounts.work.topics.push({id:uid(),text:hotContent,status:'未成文',date:todayKey()});}
+    saveState();bg.remove();
+    alert((p?'已转入个人公众号':'')+(w?(p?'和':'')+'工作公众号':'')+'选题库');
+  };
+  bg.querySelector('[data-act="tp-cancel"]').onclick=()=>bg.remove();
+  bg.addEventListener('click',e=>{if(e.target===bg)bg.remove();});
+}
+
 /* ====== 设置 ====== */
 function vSettings(){
   const cfg=sbConfig();
+  const aiCfg=aiConfig();
   const g='<div class="card"><h3>☁️ Supabase 云端同步</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">填写 Supabase 项目 URL 和 anon key 开启云端同步。<br>未填写时数据仅保存在本地（IndexedDB），不会丢失。<br>需在 Supabase 控制台创建数据表：<code style="background:var(--card-deep);padding:2px 6px;border-radius:4px;font-size:11px">create table workbench (id text primary key, data jsonb, updated_at timestamptz default now());</code></p><div class="form-grid"><div class="fld full"><label>Project URL</label><input type="text" id="sb-url" value="'+esc(cfg.url||'')+'" placeholder="https://xxxx.supabase.co"></div><div class="fld full"><label>Anon Key</label><input type="text" id="sb-key" value="'+esc(cfg.key||'')+'" placeholder="eyJ..."></div></div><button class="btn" data-act="sb-save">保存并连接</button> <button class="btn btn-ghost" data-act="sb-test">测试连接</button> <button class="btn btn-red" data-act="sb-clear" style="margin-left:auto">断开</button></div>'+
+  '<div class="card"><h3>🤖 AI 服务配置</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">配置 AI 服务后，「每日热点」板块可自动生成爆款解读。<br>推荐智谱 GLM（注册送 2000 万 tokens 免费额度：<a href="https://bigmodel.cn/console/overview" target="_blank" style="color:var(--green)">bigmodel.cn</a>）</p><div class="form-grid"><div class="fld"><label>服务商</label><select id="ai-provider"><option value="zhipu"'+(aiCfg.provider==='zhipu'?' selected':'')+'>智谱 GLM</option><option value="deepseek"'+(aiCfg.provider==='deepseek'?' selected':'')+'>DeepSeek</option></select></div><div class="fld full"><label>API Key</label><input type="text" id="ai-key" value="'+esc(aiCfg.key||'')+'" placeholder="粘贴你的 API Key…"></div></div><button class="btn" data-act="ai-save">保存</button> <button class="btn btn-ghost" data-act="ai-test">测试连接</button> <button class="btn btn-red" data-act="ai-clear" style="margin-left:auto">清除</button></div>'+
   '<div class="card"><h3>💾 数据管理</h3><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-ghost" data-act="export">导出备份(JSON)</button><button class="btn btn-ghost" data-act="import">导入备份</button><button class="btn btn-red" data-act="reset">清空所有数据</button></div></div>'+
   '<div class="card"><h3>📱 使用说明</h3><div style="font-size:12.5px;color:var(--ink-soft);line-height:2"><b>桌面端</b>：将本 HTML 文件放在桌面，双击即可打开。可在浏览器中「添加快捷方式」生成桌面图标。<br><b>手机端</b>：在 Safari 中打开 → 分享 →「添加到主屏幕」，即可像 App 一样使用。<br><b>数据同步</b>：配置 Supabase 后，多设备数据自动同步。未配置时数据保存在本地浏览器。<br><b>侧栏折叠</b>：点击侧栏左上角圆形按钮可折叠/展开侧栏，折叠后仅显示图标。</div></div>';
   return pageHead('⚙️ 设置','云端同步 · 数据管理 · 使用说明')+g;
 }
 
 /* ====== 渲染 ====== */
-const RENDER={overview:vOverview,todos:vTodos,checkin:vCheckin,academic:vAcademic,accp:()=>vAccount('personal','🔥','个人公众号','生活感受 + 中华经典'),accw:()=>vAccount('work','💼','工作公众号','工作相关内容 · 独立统计'),concept:vConcept,novel:vNovel,reading:vReading,ideas:vIdeas,english:vEnglish,exercise:vExercise,finance:vFinance,ainews:vAINews,settings:vSettings};
+const RENDER={overview:vOverview,todos:vTodos,checkin:vCheckin,academic:vAcademic,accp:()=>vAccount('personal','🔥','个人公众号','生活感受 + 中华经典'),accw:()=>vAccount('work','💼','工作公众号','工作相关内容 · 独立统计'),concept:vConcept,novel:vNovel,reading:vReading,ideas:vIdeas,english:vEnglish,exercise:vExercise,finance:vFinance,ainews:vAINews,hottrends:vHotTrends,settings:vSettings};
 function render(){
   renderNav();renderTabs();
   $('#main').innerHTML=(RENDER[ui.view]||vOverview)();
@@ -867,11 +990,11 @@ function showEditModal(title,fields,onSave){
 }
 
 /* ====== 事件 ====== */
-document.body.addEventListener('click',e=>{
+document.body.addEventListener('click',async e=>{
   const el=e.target.closest('[data-act]');if(!el)return;
   const act=el.dataset.act;
   switch(act){
-    case 'nav':ui.view=el.dataset.view;render();break;
+    case 'nav':ui.view=el.dataset.view;render();if(el.dataset.view==='hottrends'&&ui.hotTab==='auto')setTimeout(loadHotAuto,100);break;
     case 'sb-toggle':{$('#sidebar').classList.toggle('collapsed');$('#app').classList.toggle('sb-collapsed');el.textContent=$('#sidebar').classList.contains('collapsed')?'›':'‹';break;}
     case 'todo-toggle':{const x=state.todos.find(t=>t.id===el.dataset.id);if(x){x.done=!x.done;saveState();render();}break;}
     case 'todo-add':{const t=$('#td-text'),g=$('#td-tag'),d=$('#td-date');if(t&&t.value.trim())addTodo(t.value.trim(),g?g.value:'普通',d&&d.value?d.value:undefined);break;}
@@ -891,6 +1014,10 @@ document.body.addEventListener('click',e=>{
     case 'acc-topic-toggle':break;
     case 'acc-topic-del':{const a=state.accounts[el.dataset.k];a.topics=a.topics.filter(t=>t.id!==el.dataset.id);saveState();render();break;}
     case 'acc-topic-edit':{const a=state.accounts[el.dataset.k];const tp=a.topics.find(t=>t.id===el.dataset.id);if(!tp)break;showEditModal('编辑选题',[{id:'text',label:'选题内容',value:tp.text},{id:'status',label:'状态',type:'select',options:ACC_STATUS,value:tp.status}],v=>{tp.text=v.text;tp.status=v.status;saveState();render();});break;}
+    case 'acc-art-add':{showEditModal('添加文章数据',[{id:'title',label:'文章标题',placeholder:'如：曹端哲学的现代意义'},{id:'link',label:'文章链接',placeholder:'https://mp.weixin.qq.com/...'},{id:'date',label:'发布日期',type:'date',value:todayKey()},{id:'firstReads',label:'首发阅读量',type:'number'},{id:'firstLikes',label:'首发点赞',type:'number'},{id:'firstWow',label:'首发在看',type:'number'},{id:'day7Reads',label:'7日阅读量',type:'number'},{id:'day7Likes',label:'7日点赞',type:'number'},{id:'day7Wow',label:'7日在看',type:'number'},{id:'shares',label:'转发数',type:'number'},{id:'comments',label:'留言数',type:'number'}],v=>{state.accounts[el.dataset.k].articles.push({id:uid(),title:v.title,link:v.link,date:v.date,firstReads:+v.firstReads||0,firstLikes:+v.firstLikes||0,firstWow:+v.firstWow||0,day7Reads:+v.day7Reads||0,day7Likes:+v.day7Likes||0,day7Wow:+v.day7Wow||0,shares:+v.shares||0,comments:+v.comments||0});saveState();render();});break;}
+    case 'acc-art-edit':{const a=state.accounts[el.dataset.k];const ar=a.articles.find(x=>x.id===el.dataset.id);if(!ar)break;showEditModal('编辑文章数据',[{id:'title',label:'文章标题',value:ar.title},{id:'link',label:'文章链接',value:ar.link},{id:'date',label:'发布日期',type:'date',value:ar.date},{id:'firstReads',label:'首发阅读量',type:'number',value:ar.firstReads},{id:'firstLikes',label:'首发点赞',type:'number',value:ar.firstLikes},{id:'firstWow',label:'首发在看',type:'number',value:ar.firstWow},{id:'day7Reads',label:'7日阅读量',type:'number',value:ar.day7Reads},{id:'day7Likes',label:'7日点赞',type:'number',value:ar.day7Likes},{id:'day7Wow',label:'7日在看',type:'number',value:ar.day7Wow},{id:'shares',label:'转发数',type:'number',value:ar.shares},{id:'comments',label:'留言数',type:'number',value:ar.comments}],v=>{Object.assign(ar,{title:v.title,link:v.link,date:v.date,firstReads:+v.firstReads||0,firstLikes:+v.firstLikes||0,firstWow:+v.firstWow||0,day7Reads:+v.day7Reads||0,day7Likes:+v.day7Likes||0,day7Wow:+v.day7Wow||0,shares:+v.shares||0,comments:+v.comments||0});saveState();render();});break;}
+    case 'acc-art-del':{state.accounts[el.dataset.k].articles=state.accounts[el.dataset.k].articles.filter(x=>x.id!==el.dataset.id);saveState();render();break;}
+    case 'acc-art-import':{const bg=document.createElement('div');bg.className='modal-bg';bg.innerHTML='<div class="modal"><h3>📋 粘贴导入</h3><p style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;line-height:1.6">从公众号后台导出 Excel 后，选中数据列复制，粘贴到下方。格式：每行一篇，列用 Tab 分隔。<br>如：标题 Tab 阅读量 Tab 点赞量 Tab …</p><textarea id="art-import-area" rows="8" style="width:100%;font-size:11px" placeholder="标题\t阅读量\t点赞\t在看\t转发\t留言\n曹端哲学\t1234\t56\t12\t3\t5"></textarea><button class="btn" style="margin-top:10px" data-act="art-import-go">解析并导入</button><button class="btn btn-ghost" style="margin-top:10px;margin-left:8px" data-act="art-import-cancel">取消</button></div>';document.body.appendChild(bg);bg.querySelector('[data-act="art-import-go"]').onclick=()=>{const txt=bg.querySelector('#art-import-area').value.trim();if(!txt){alert('请粘贴数据');return;}const lines=txt.split('\n').filter(l=>l.trim());let cnt=0;lines.forEach(line=>{const cols=line.split('\t').map(c=>c.trim());if(cols.length>=2){state.accounts[el.dataset.k].articles.push({id:uid(),title:cols[0]||'未命名',link:'',date:todayKey(),firstReads:+cols[1]||0,firstLikes:+cols[2]||0,firstWow:+cols[3]||0,day7Reads:0,day7Likes:0,day7Wow:0,shares:+cols[4]||0,comments:+cols[5]||0});cnt++;}});bg.remove();saveState();render();alert('成功导入 '+cnt+' 篇文章数据');};bg.querySelector('[data-act="art-import-cancel"]').onclick=()=>bg.remove();bg.addEventListener('click',e=>{if(e.target===bg)bg.remove();});break;}
     case 'concept-add':{const sit=$('#cp-sit').value.trim();if(!sit&&!$('#cp-aware').value.trim()&&!$('#cp-gong').value.trim()&&!$('#cp-res').value.trim())break;state.concepts.unshift({id:uid(),date:$('#cp-date').value||todayKey(),category:$('#cp-cat').value,seed:$('#cp-seed').value,sit:sit,aware:$('#cp-aware').value.trim(),gong:$('#cp-gong').value.trim(),res:$('#cp-res').value.trim()});saveState();render();break;}
     case 'concept-del':state.concepts=state.concepts.filter(c=>c.id!==el.dataset.id);saveState();render();break;
     case 'concept-edit':{const c=state.concepts.find(x=>x.id===el.dataset.id);if(!c)break;showEditModal('编辑观念记录',[{id:'date',label:'日期',type:'date',value:c.date},{id:'category',label:'分类',type:'select',options:CONCEPT_CATS,value:c.category},{id:'seed',label:'种子',type:'select',options:SEEDS,value:c.seed},{id:'sit',label:'情境',type:'textarea',value:c.sit},{id:'aware',label:'觉察',type:'textarea',value:c.aware},{id:'gong',label:'功夫',type:'textarea',value:c.gong},{id:'res',label:'结果',type:'textarea',value:c.res}],v=>{Object.assign(c,{date:v.date,category:v.category,seed:v.seed,sit:v.sit,aware:v.aware,gong:v.gong,res:v.res});saveState();render();});break;}
@@ -923,6 +1050,16 @@ document.body.addEventListener('click',e=>{
     case 'sb-save':{const url=$('#sb-url').value.trim(),key=$('#sb-key').value.trim();localStorage.setItem(KEY_SB,JSON.stringify({url,key}));if(url&&key){initSupabase();}else{setConn('offline');}render();break;}
     case 'sb-test':{initSupabase();break;}
     case 'sb-clear':{localStorage.removeItem(KEY_SB);_supaClient=null;setConn('offline');render();break;}
+    case 'hot-tab':ui.hotTab=el.dataset.v;render();if(ui.hotTab==='auto')setTimeout(loadHotAuto,50);break;
+    case 'hot-refresh':loadHotAuto();break;
+    case 'hot-manual-add':{const c=$('#hm-content'),s=$('#hm-source'),ht=$('#hm-heat'),lk=$('#hm-link');if(c&&c.value.trim()){state.hottrends.manual.push({id:uid(),date:todayKey(),source:s?s.value:'其他',content:c.value.trim(),heat:ht?ht.value.trim():'',link:lk?lk.value.trim():'',interpretation:''});saveState();render();}break;}
+    case 'hot-manual-del':{state.hottrends.manual=state.hottrends.manual.filter(m=>m.id!==el.dataset.id);saveState();render();break;}
+    case 'hot-manual-edit':{const m=state.hottrends.manual.find(x=>x.id===el.dataset.id);if(!m)break;showEditModal('编辑热梗',[{id:'source',label:'来源平台',type:'select',options:HOT_MANUAL_SOURCES,value:m.source},{id:'heat',label:'热度',value:m.heat},{id:'content',label:'内容',type:'textarea',value:m.content},{id:'link',label:'链接',value:m.link}],v=>{Object.assign(m,{source:v.source,heat:v.heat,content:v.content,link:v.link});saveState();render();});break;}
+    case 'hot-interpret':{const m=state.hottrends.manual.find(x=>x.id===el.dataset.id);if(!m)break;const btn=el;btn.textContent='⏳ 解读中…';btn.disabled=true;const r=await callAI(aiInterpretPrompt(m.content,m.source));if(r.ok){m.interpretation=r.text;saveState();btn.textContent='✅ 已生成';setTimeout(()=>{render();},500);}else{btn.textContent='❌ 失败';setTimeout(()=>{alert(r.error);btn.textContent='🤖 AI解读';btn.disabled=false;},300);}break;}
+    case 'hot-to-topic':{const m=state.hottrends.manual.find(x=>x.id===el.dataset.id);if(m)showTopicPicker(m.id,'manual',m.content);break;}
+    case 'ai-save':{const p=$('#ai-provider'),k=$('#ai-key');localStorage.setItem(KEY_AI,JSON.stringify({provider:p?p.value:'zhipu',key:k?k.value.trim():''}));alert('AI配置已保存');render();break;}
+    case 'ai-test':{const r=await callAI('请回复"连接成功"四个字');if(r.ok)alert('✅ AI连接成功！\n\n回复：'+r.text);else alert('❌ '+r.error);break;}
+    case 'ai-clear':{localStorage.removeItem(KEY_AI);render();break;}
     case 'export':{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='耿茗傑工作台备份-'+todayKey()+'.json';a.click();break;}
     case 'import':{const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=()=>{const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{state=mergeObj(defaultData(),JSON.parse(r.result));saveState(true);render();alert('导入成功');}catch(err){alert('导入失败：'+err.message);}};r.readAsText(f);};inp.click();break;}
     case 'reset':{if(confirm('确定清空所有数据？此操作不可撤销。')){state=defaultData();saveState(true);render();}break;}
@@ -951,7 +1088,7 @@ document.body.addEventListener('change',e=>{
 
 /* ====== 手机端"更多"页面 ====== */
 function vMoreMobile(){
-  const items=[['academic','📖','学术进度','论文进度'],['accp','🔥','个人公众号','发文统计'],['accw','💼','工作公众号','发文统计'],['concept','🎯','观念工夫','观念记录'],['novel','✒️','小说字数','创作笔记'],['reading','📝','读书札记','阅读笔记'],['english','📕','英语学习','单词/听力/阅读/口语'],['exercise','💪','运动锻炼','运动/体重记录'],['finance','💰','财经资讯','外部渠道'],['ainews','🤖','AI资讯','外部渠道'],['settings','⚙️','设置','同步/备份']];
+  const items=[['academic','📖','学术进度','论文进度'],['accp','🔥','个人公众号','发文统计'],['accw','💼','工作公众号','发文统计'],['concept','🎯','观念工夫','观念记录'],['novel','✒️','小说字数','创作笔记'],['reading','📝','读书札记','阅读笔记'],['english','📕','英语学习','单词/听力/阅读/口语'],['exercise','💪','运动锻炼','运动/体重记录'],['finance','💰','财经资讯','外部渠道'],['ainews','🤖','AI资讯','外部渠道'],['hottrends','🔥','每日热点','热榜+热梗+AI解读'],['settings','⚙️','设置','同步/备份']];
   const g='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">'+items.map(([v,i,n,s])=>'<div class="card" style="cursor:pointer;margin:0;padding:15px 14px" data-act="nav" data-view="'+v+'"><div style="font-size:22px">'+i+'</div><div style="font-family:Noto Serif SC,serif;font-size:14.5px;font-weight:700;letter-spacing:1px;margin-top:5px">'+n+'</div><div style="font-size:11px;color:var(--ink-faint);margin-top:1px">'+s+'</div></div>').join('')+'</div>';
   return pageHead('🧭 更多模块','学术 · 公众号 · 观念 · 小说 · 札记 · 英语 · 运动 · 资讯 · 设置')+g;
 }
