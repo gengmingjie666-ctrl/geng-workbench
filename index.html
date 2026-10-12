@@ -484,13 +484,23 @@ async function fetchHotList(type){
   }catch{return null;}
 }
 async function fetchAllHot(){
-  // Sequential with delay to avoid rate limiting (Cloudflare 1015)
+  // Try local cached JSON first (from GitHub Action), fallback to direct API
+  try{
+    const r=await fetch('hot-data.json?'+Date.now());
+    if(r.ok){
+      const d=await r.json();
+      if(d.data&&(d.data.weibo||d.data.zhihu||d.data.douyin)){
+        return{weibo:d.data.weibo,zhihu:d.data.zhihu,bili:d.data.bili,douyin:d.data.douyin};
+      }
+    }
+  }catch{}
+  // Fallback: direct API (sequential to reduce rate limiting)
   const weibo=await fetchHotList('weibo');
-  await new Promise(r=>setTimeout(r,500));
+  await new Promise(r=>setTimeout(r,1000));
   const zhihu=await fetchHotList('zhihu');
-  await new Promise(r=>setTimeout(r,500));
+  await new Promise(r=>setTimeout(r,1000));
   const bili=await fetchHotList('bilibili');
-  await new Promise(r=>setTimeout(r,500));
+  await new Promise(r=>setTimeout(r,1000));
   const douyin=await fetchHotList('douyin');
   return{weibo,zhihu,bili,douyin};
 }
