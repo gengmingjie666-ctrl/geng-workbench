@@ -1,8 +1,8 @@
 name: Fetch Hot Topics
 on:
   schedule:
-    # Every hour at :00
-    - cron: '0 * * * *'
+    # Every hour at :05 (avoid top-of-hour congestion)
+    - cron: '5 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -12,38 +12,59 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch hot lists
+
+      - name: Fetch hot lists (with retry)
+        id: fetch
         run: |
-          # Fetch each platform with delay to avoid rate limiting
-          echo '{"date":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","data":{' > hot-data.json
+          python3 << 'PYEOF'
+          import json, urllib.request, time, os
 
-          echo -n '"weibo":' >> hot-data.json
-          W=$(curl -s -m 15 "https://60s.viki.moe/v2/weibo")
-          echo "$W" | python3 -c "import sys,json;d=json.load(sys.stdin);json.dump(d.get('data') or [],sys.stdout,ensure_ascii=False)" >> hot-data.json 2>/dev/null || echo '[]' >> hot-data.json
+          def fetch(ep, retries=6, delay=20):
+              for i in range(retries):
+                  try:
+                      req = urllib.request.Request(
+                          f'https://60s.viki.moe/v2/{ep}',
+                          headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', 'Accept': 'application/json'})
+                      r = urllib.request.urlopen(req, timeout=20)
+                      d = json.loads(r.read())
+                      if d.get('code') == 200 and d.get('data'):
+                          print(f'{ep}: OK ({len(d["data"])} items) attempt {i+1}')
+                          return d['data']
+                      print(f'{ep}: code={d.get("code")} attempt {i+1}')
+                  except Exception as e:
+                      print(f'{ep}: {e} attempt {i+1}')
+                  time.sleep(delay)
+              return []
 
-          sleep 2
-          echo -n ',"zhihu":' >> hot-data.json
-          Z=$(curl -s -m 15 "https://60s.viki.moe/v2/zhihu")
-          echo "$Z" | python3 -c "import sys,json;d=json.load(sys.stdin);json.dump(d.get('data') or [],sys.stdout,ensure_ascii=False)" >> hot-data.json 2>/dev/null || echo '[]' >> hot-data.json
+          data = {'date': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'data': {}}
+          data['data']['weibo'] = fetch('weibo')
+          time.sleep(10)
+          data['data']['zhihu'] = fetch('zhihu')
+          time.sleep(10)
+          data['data']['bili'] = fetch('bili')
+          time.sleep(10)
+          data['data']['douyin'] = fetch('douyin')
 
-          sleep 2
-          echo -n ',"bili":' >> hot-data.json
-          B=$(curl -s -m 15 "https://60s.viki.moe/v2/bili")
-          echo "$B" | python3 -c "import sys,json;d=json.load(sys.stdin);json.dump(d.get('data') or [],sys.stdout,ensure_ascii=False)" >> hot-data.json 2>/dev/null || echo '[]' >> hot-data.json
+          counts = {k: len(v) for k, v in data['data'].items()}
+          print('RESULT:', counts)
 
-          sleep 2
-          echo -n ',"douyin":' >> hot-data.json
-          D=$(curl -s -m 15 "https://60s.viki.moe/v2/douyin")
-          echo "$D" | python3 -c "import sys,json;d=json.load(sys.stdin);json.dump(d.get('data') or [],sys.stdout,ensure_ascii=False)" >> hot-data.json 2>/dev/null || echo '[]' >> hot-data.json
+          # Only write file if we got meaningful data (weibo or zhihu or douyin non-empty)
+          if counts['weibo'] or counts['zhihu'] or counts['douyin']:
+              with open('hot-data.json', 'w') as f:
+                  json.dump(data, f, ensure_ascii=False)
+              print('WROTE=ok')
+          else:
+              print('WROTE=empty')
 
-          echo '}}' >> hot-data.json
-          echo "Done. File size: $(wc -c < hot-data.json) bytes"
-          cat hot-data.json | python3 -c "import sys,json;d=json.load(sys.stdin);print({k:len(v) for k,v in d['data'].items()})"
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"wrote={'ok' if (counts['weibo'] or counts['zhihu'] or counts['douyin']) else 'empty'}\n")
+          PYEOF
 
       - name: Commit and push
+        if: steps.fetch.outputs.wrote == 'ok'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add hot-data.json
-          git diff --staged --quiet || git commit -m "chore: update hot topics data [skip ci]"
+          git diff --staged --quiet || git commit -m "data: hot topics update [skip ci]"
           git push
