@@ -1,0 +1,49 @@
+name: Fetch Hot Topics
+on:
+  schedule:
+    # Every hour at :00
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch hot lists
+        run: |
+          # Fetch each platform with delay to avoid rate limiting
+          echo '{"date":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","data":{' > hot-data.json
+
+          echo -n '"weibo":' >> hot-data.json
+          W=$(curl -s -m 15 "https://60s.viki.moe/v2/weibo")
+          echo "$W" | python3 -c "import sys,json;d=json.load(sys.stdin);json.dump(d.get('data') or [],sys.stdout,ensure_ascii=False)" >> hot-data.json 2>/dev/null || echo '[]' >> hot-data.json
+
+          sleep 2
+          echo -n ',"zhihu":' >> hot-data.json
+          Z=$(curl -s -m 15 "https://60s.viki.moe/v2/zhihu")
+          echo "$Z" | python3 -c "import sys,json;d=json.load(sys.stdin);json.dump(d.get('data') or [],sys.stdout,ensure_ascii=False)" >> hot-data.json 2>/dev/null || echo '[]' >> hot-data.json
+
+          sleep 2
+          echo -n ',"bili":' >> hot-data.json
+          B=$(curl -s -m 15 "https://60s.viki.moe/v2/bili")
+          echo "$B" | python3 -c "import sys,json;d=json.load(sys.stdin);json.dump(d.get('data') or [],sys.stdout,ensure_ascii=False)" >> hot-data.json 2>/dev/null || echo '[]' >> hot-data.json
+
+          sleep 2
+          echo -n ',"douyin":' >> hot-data.json
+          D=$(curl -s -m 15 "https://60s.viki.moe/v2/douyin")
+          echo "$D" | python3 -c "import sys,json;d=json.load(sys.stdin);json.dump(d.get('data') or [],sys.stdout,ensure_ascii=False)" >> hot-data.json 2>/dev/null || echo '[]' >> hot-data.json
+
+          echo '}}' >> hot-data.json
+          echo "Done. File size: $(wc -c < hot-data.json) bytes"
+          cat hot-data.json | python3 -c "import sys,json;d=json.load(sys.stdin);print({k:len(v) for k,v in d['data'].items()})"
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add hot-data.json
+          git diff --staged --quiet || git commit -m "chore: update hot topics data [skip ci]"
+          git push
