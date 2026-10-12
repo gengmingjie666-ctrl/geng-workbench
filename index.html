@@ -974,6 +974,7 @@ function render(){
   $('#todayStr').textContent=todayCN();
   const tsM=$('#todayStrM');if(tsM)tsM.textContent=todayCN();
   window.scrollTo(0,0);
+  if(ui.view==='hottrends'&&ui.hotTab==='auto')setTimeout(loadHotAuto,100);
 }
 
 /* ====== 添加待办 ====== */
