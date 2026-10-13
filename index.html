@@ -748,7 +748,7 @@ function vTodosBody(){
   let g='<div class="card"><h3>➕ 添加日课</h3><div class="add-row" style="margin-bottom:0"><input type="text" id="td-text" placeholder="要做什么…（可指定日期）" data-enter="todo-add"><select id="td-tag" style="width:auto">'+TODO_TAGS.map(x=>'<option>'+x+'</option>').join('')+'</select><input type="date" id="td-date" value="'+todayKey()+'" style="width:auto"><button class="btn" data-act="todo-add">添加</button></div></div>';
   const f=ui.todoTag;
   const match=x=>f==='all'||x.tag===f;
-  const undone=state.todos.filter(x=>!x.done&&match(x)).sort((a,b)=>a.date<b.date?-1:1);
+  const undone=state.todos.filter(x=>!x.done&&match(x)&&x.date>=todayKey()).sort((a,b)=>a.date<b.date?-1:1);
   const doneToday=state.todos.filter(x=>x.done&&x.date===todayKey()&&match(x));
   g+='<div class="card"><h3>🌱 未完成 <span class="tag-mini">'+undone.length+' 项</span></h3><div class="chips">'+['all'].concat(TODO_TAGS).map(x=>'<span class="chip'+(f===x?' on':'')+'" data-act="todo-filter" data-v="'+x+'">'+(x==='all'?'全部':x)+'</span>').join('')+'</div>'+(undone.length?undone.map(todoItem).join(''):'<div class="empty">无待办，一念不生</div>')+'</div>';
   g+='<div class="card"><h3>🍂 今日已完成 <span class="tag-mini">'+doneToday.length+' 项</span></h3>'+(doneToday.length?doneToday.map(todoItem).join(''):'<div class="empty">还没有完成的日课</div>')+'</div>';
