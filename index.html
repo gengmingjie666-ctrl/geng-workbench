@@ -193,17 +193,22 @@ textarea{resize:vertical;width:100%}
 .rec-body .ed{color:var(--red);font-style:italic}
 
 /* ====== 富文本编辑器 ====== */
-.rt{border:1px solid var(--line);border-radius:10px;background:#fffdf6;overflow:hidden}
-.rt-bar{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;border-bottom:1px solid var(--line);background:var(--card);align-items:center}
+.rt{border:1px solid var(--line);border-radius:10px;background:#fffdf6}
+.rt-bar{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;border-bottom:1px solid var(--line);background:var(--card);align-items:center;border-radius:9px 9px 0 0}
 .rt-bar button,.rt-bar select{font-family:inherit;font-size:12px;color:var(--ink);border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;padding:2px 8px;line-height:1.5}
 .rt-bar button:hover{background:rgba(74,124,89,.12)}
 .rt-bar button:active{transform:scale(.95)}
 .rt-bar select{padding:2px 4px;max-width:96px}
-.rt-area{min-height:84px;max-height:280px;overflow-y:auto;padding:10px 12px;font-size:14px;line-height:1.85;outline:none;word-break:break-word;background:#fffdf6}
+.rt-area{min-height:84px;max-height:280px;overflow-y:auto;padding:10px 12px;font-size:14px;line-height:1.85;outline:none;word-break:break-word;background:#fffdf6;border-radius:0 0 9px 9px}
 .rt-area:empty:before{content:attr(data-ph);color:var(--ink-faint);pointer-events:none}
 .rt-area mark{background:#ffe08a;color:inherit;padding:0 2px;border-radius:3px}
 .rt-area a{color:var(--blue)}
 .rt-area u{text-underline-offset:3px}
+.rt-pk{position:relative;display:inline-flex}
+.rt-grid{display:none;position:absolute;top:calc(100% + 5px);left:0;z-index:80;background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px;grid-template-columns:repeat(3,20px);gap:6px;box-shadow:0 4px 16px rgba(44,36,22,.18)}
+.rt-pk.open .rt-grid{display:grid}
+.rt-sw{width:20px;height:20px;border-radius:5px;border:1px solid rgba(0,0,0,.18);cursor:pointer;padding:0;transition:transform .1s}
+.rt-sw:hover{transform:scale(1.18)}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .form-grid .full{grid-column:1/-1}
 .fld label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px;letter-spacing:.5px}
@@ -669,13 +674,14 @@ function toRichHTML(v){
 function richEditorHTML(id,value,placeholder){
   const btn=(cmd,val,title,body,style)=>'<button type="button" class="rt-b" data-cmd="'+cmd+'"'+(val?' data-val="'+val+'"':'')+' title="'+title+'"'+(style?' style="'+style+'"':'')+'>'+body+'</button>';
   const sel=(cmd,opts,label)=>'<select class="rt-s" data-cmd="'+cmd+'"><option value="">'+label+'</option>'+opts.map(o=>'<option value="'+o[0]+'">'+o[1]+'</option>').join('')+'</select>';
+  const pk=(cmd,opts,label)=>'<span class="rt-pk"><button type="button" class="rt-b" data-pk="'+cmd+'" title="'+label+'">'+label+'</button><span class="rt-grid">'+opts.map(o=>'<button type="button" class="rt-sw" data-cmd="'+cmd+'" data-val="'+o[0]+'" title="'+o[1]+'" style="background:'+o[0]+'"></button>').join('')+'</span></span>';
   return '<div class="rt" data-rt="'+id+'"><div class="rt-bar">'
     +btn('bold','','加粗','<b>B</b>')
     +btn('underline','','下划线','<u>U</u>')
     +btn('hiliteColor','#ffe08a','高亮','高亮','background:#ffe08a')
     +sel('fontSize',[['2','小号'],['3','标准'],['4','中号'],['5','大号'],['7','特大']],'字号')
-    +sel('foreColor',RT_COLORS,'字色')
-    +sel('hiliteColor',RT_HILITES,'底色')
+    +pk('foreColor',RT_COLORS,'字色')
+    +pk('hiliteColor',RT_HILITES,'底色')
     +btn('removeFormat','','清除格式','✕式')
     +'</div><div class="rt-area" contenteditable="true" data-ph="'+esc(placeholder||'')+'">'+(value||'')+'</div></div>';
 }
@@ -692,12 +698,22 @@ function bindRich(root){
         document.execCommand(b.dataset.cmd,false,v);
         if(b.dataset.cmd==='hiliteColor')document.execCommand('backColor',false,v);
         if(b.tagName==='SELECT')b.value='';
+        const pkb=b.closest('.rt-pk');if(pkb)pkb.classList.remove('open');
       };
       if(b.tagName==='SELECT')b.addEventListener('change',run);
       else b.addEventListener('mousedown',ev=>{ev.preventDefault();run();});
     });
+    rt.querySelectorAll('[data-pk]').forEach(b=>{
+      b.addEventListener('mousedown',ev=>{
+        ev.preventDefault();
+        const pk=b.closest('.rt-pk');const was=pk.classList.contains('open');
+        root.querySelectorAll('.rt-pk.open').forEach(x=>x.classList.remove('open'));
+        if(!was)pk.classList.add('open');
+      });
+    });
   });
 }
+document.addEventListener('click',e=>{document.querySelectorAll('.rt-pk.open').forEach(p=>{if(!p.contains(e.target))p.classList.remove('open');});});
 function rtGet(id){
   const a=document.querySelector('.rt[data-rt="'+id+'"] .rt-area');
   if(!a)return{html:'',text:''};
@@ -1172,6 +1188,7 @@ const RENDER={overview:vOverview,todos:vTodos,checkin:vCheckin,academic:vAcademi
 function render(){
   renderNav();renderTabs();
   $('#main').innerHTML=(RENDER[ui.view]||vOverview)();
+  bindRich($('#main'));
   $('#todayStr').textContent=todayCN();
   const tsM=$('#todayStrM');if(tsM)tsM.textContent=todayCN();
   window.scrollTo(0,0);
