@@ -437,21 +437,54 @@ async function syncToCloud(){
   if(!_supaClient)return;
   if(_syncTimer)clearTimeout(_syncTimer);
   _syncTimer=setTimeout(async()=>{
-    setConn('syncing');
+    _syncTimer=null;
+    if(_pushing)return;
+    _pushing=true;setConn('syncing');
     try{
       const now=new Date().toISOString();
       const{error}=await _supaClient.from('workbench').upsert({id:'main',data:state,updated_at:now});
       if(error)throw error;
+      _dirty=false;
       _cloudSyncedAt=new Date(now).getTime();
       await idbSet('cloud_synced_at',_cloudSyncedAt);
       setConn('online');
-    }catch{setConn('error');}
+    }catch{setConn('error');}finally{_pushing=false;}
   },1500);
 }
 let _syncingFromCloud=false;
 let _cloudSyncedAt=0;
+let _pushing=false;let _dirty=false;
+/* 深度合并：local 为主，cloud 只补缺口（新增条目/新键），绝不删除本地已有内容 */
+function mergeState(local,cloud){
+  let changed=false;
+  const isObj=x=>x&&typeof x==='object'&&!Array.isArray(x);
+  function deep(a,b){
+    if(Array.isArray(a)&&Array.isArray(b)){
+      const keyOf=it=>{
+        if(it&&typeof it==='object')return(it.id!==undefined&&it.id!==null)?('id:'+it.id):('k:'+JSON.stringify(it));
+        return 'v:'+it;
+      };
+      const out=a.slice();const seen=new Set(a.map(keyOf));
+      for(const it of b){const k=keyOf(it);if(!seen.has(k)){out.push(it);seen.add(k);changed=true;}}
+      return out;
+    }
+    if(isObj(a)&&isObj(b)){
+      const out=Object.assign({},a);
+      for(const k of Object.keys(b)){
+        if(a[k]===undefined){out[k]=b[k];changed=true;}
+        else if(isObj(a[k])&&isObj(b[k]))out[k]=deep(a[k],b[k]);
+        else if(Array.isArray(a[k])&&Array.isArray(b[k]))out[k]=deep(a[k],b[k]);
+      }
+      return out;
+    }
+    return(a===undefined||a===null)?b:a;
+  }
+  return{state:deep(local,cloud),changed};
+}
 async function syncFromCloud(){
   if(!_supaClient||_syncingFromCloud)return;
+  // 本地有未推送的修改时绝不拉取覆盖，防止刚写的内容被旧云端数据冲掉
+  if(_dirty||_pushing||_saveTimer||_syncTimer){syncToCloud();return;}
   _syncingFromCloud=true;
   try{
     const{data,error}=await _supaClient.from('workbench').select('data,updated_at').eq('id','main').maybeSingle();
@@ -459,13 +492,21 @@ async function syncFromCloud(){
     if(data&&data.data){
       const cloud=data.data;
       const cloudTs=new Date(data.updated_at).getTime()||0;
-      // Compare with last cloud sync time, NOT local save time
-      if(cloudTs>_cloudSyncedAt){
-        state=mergeObj(defaultData(),cloud);
+      const localTs=(await idbGet('updated_at'))||0;
+      if(cloudTs>_cloudSyncedAt&&cloudTs>localTs){
+        // 覆盖前备份当前本地状态，万一同步冲突可找回
+        const cur=await idbGet(KEY_STATE);
+        if(cur)await idbSet('backup_state',cur);
+        // 深度合并而非整份覆盖：云端只补缺，本地内容不丢
+        const m=mergeState(state,mergeObj(defaultData(),cloud));
+        state=m.state;
         await idbSet(KEY_STATE,state);
         _cloudSyncedAt=cloudTs;
         await idbSet('cloud_synced_at',cloudTs);
+        if(m.changed)syncToCloud(); // 把合并结果推回云端，让另一台设备也能拿到
         render();
+      }else if(localTs>cloudTs&&localTs>_cloudSyncedAt){
+        syncToCloud();
       }
     }
   }catch{}finally{_syncingFromCloud=false;}
@@ -475,20 +516,18 @@ async function initCloudSyncedAt(){
   _cloudSyncedAt=ts||0;
 }
 function startCloudPolling(){
+  const syncNow=()=>{
+    if(!_supaClient||_connStatus!=='online')return;
+    if(_dirty||_saveTimer||_syncTimer)syncToCloud();else syncFromCloud();
+  };
   // Poll cloud every 30s when connected (iOS may not fire this in background, but works in foreground)
-  setInterval(()=>{if(_supaClient&&_connStatus==='online'&&!_saveTimer&&!_syncTimer)syncFromCloud();},30000);
+  setInterval(syncNow,30000);
   // Pull from cloud when tab becomes visible again
-  document.addEventListener('visibilitychange',()=>{
-    if(!document.hidden&&_supaClient&&_connStatus==='online')syncFromCloud();
-  });
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow();});
   // iOS PWA: pageshow fires when returning to cached page
-  window.addEventListener('pageshow',()=>{
-    if(_supaClient&&_connStatus==='online')syncFromCloud();
-  });
+  window.addEventListener('pageshow',syncNow);
   // Also pull on window focus
-  window.addEventListener('focus',()=>{
-    if(_supaClient&&_connStatus==='online')syncFromCloud();
-  });
+  window.addEventListener('focus',syncNow);
 }
 
 /* ====== 状态管理 ====== */
@@ -565,13 +604,14 @@ async function loadState(){
 let _saveTimer=null;
 function saveState(immediate){
   const doSave=async()=>{
+    _dirty=true;
     await idbSet(KEY_STATE,state);
     await idbSet('updated_at',Date.now());
     if(_supaClient&&_connStatus!=='error')syncToCloud();
     checkCheer();
   };
   if(immediate)doSave();
-  else{if(_saveTimer)clearTimeout(_saveTimer);_saveTimer=setTimeout(doSave,300);}
+  else{if(_saveTimer)clearTimeout(_saveTimer);_saveTimer=setTimeout(()=>{_saveTimer=null;doSave();},300);}
 }
 
 /* ====== 工具 ====== */
@@ -1035,7 +1075,7 @@ function vSettings(){
   const aiCfg=state.ai||{provider:'zhipu',key:''};
   const g='<div class="card"><h3>☁️ Supabase 云端同步</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">填写 Supabase 项目 URL 和 anon key 开启云端同步。<br>未填写时数据仅保存在本地（IndexedDB），不会丢失。<br>需在 Supabase 控制台创建数据表：<code style="background:var(--card-deep);padding:2px 6px;border-radius:4px;font-size:11px">create table workbench (id text primary key, data jsonb, updated_at timestamptz default now());</code></p><div class="form-grid"><div class="fld full"><label>Project URL</label><input type="text" id="sb-url" value="'+esc(cfg.url||'')+'" placeholder="https://xxxx.supabase.co"></div><div class="fld full"><label>Anon Key</label><input type="text" id="sb-key" value="'+esc(cfg.key||'')+'" placeholder="eyJ..."></div></div><button class="btn" data-act="sb-save">保存并连接</button> <button class="btn btn-ghost" data-act="sb-test">测试连接</button> <button class="btn btn-red" data-act="sb-clear" style="margin-left:auto">断开</button></div>'+
   '<div class="card"><h3>🤖 AI 服务配置</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">配置 AI 服务后，「每日热点」板块可自动生成爆款解读。<br>推荐智谱 GLM（注册送 2000 万 tokens 免费额度：<a href="https://bigmodel.cn/console/overview" target="_blank" style="color:var(--green)">bigmodel.cn</a>）</p><div class="form-grid"><div class="fld"><label>服务商</label><select id="ai-provider"><option value="zhipu"'+(aiCfg.provider==='zhipu'?' selected':'')+'>智谱 GLM</option><option value="deepseek"'+(aiCfg.provider==='deepseek'?' selected':'')+'>DeepSeek</option></select></div><div class="fld full"><label>API Key</label><input type="text" id="ai-key" value="'+esc(aiCfg.key||'')+'" placeholder="粘贴你的 API Key…"></div></div><button class="btn" data-act="ai-save">保存</button> <button class="btn btn-ghost" data-act="ai-test">测试连接</button> <button class="btn btn-red" data-act="ai-clear" style="margin-left:auto">清除</button></div>'+
-  '<div class="card"><h3>💾 数据管理</h3><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-ghost" data-act="export">导出备份(JSON)</button><button class="btn btn-ghost" data-act="import">导入备份</button><button class="btn btn-red" data-act="reset">清空所有数据</button></div></div>'+
+  '<div class="card"><h3>💾 数据管理</h3><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-ghost" data-act="export">导出备份(JSON)</button><button class="btn btn-ghost" data-act="import">导入备份</button><button class="btn btn-ghost" data-act="restoreBak">♻️ 恢复同步前备份</button><button class="btn btn-red" data-act="reset">清空所有数据</button></div><p style="font-size:12px;color:var(--sub);margin:8px 0 0">「恢复同步前备份」：如果发现同步后内容丢失，点这里可以把上次同步覆盖前的本地数据合并回来。</p></div>'+
   '<div class="card"><h3>📱 使用说明</h3><div style="font-size:12.5px;color:var(--ink-soft);line-height:2"><b>桌面端</b>：将本 HTML 文件放在桌面，双击即可打开。可在浏览器中「添加快捷方式」生成桌面图标。<br><b>手机端</b>：在 Safari 中打开 → 分享 →「添加到主屏幕」，即可像 App 一样使用。<br><b>数据同步</b>：配置 Supabase 后，多设备数据自动同步。未配置时数据保存在本地浏览器。<br><b>侧栏折叠</b>：点击侧栏左上角圆形按钮可折叠/展开侧栏，折叠后仅显示图标。</div></div>';
   return pageHead('⚙️ 设置','云端同步 · 数据管理 · 使用说明')+g;
 }
@@ -1142,6 +1182,7 @@ document.body.addEventListener('click',async e=>{
     case 'ai-clear':{state.ai={provider:'zhipu',key:''};saveState();render();break;}
     case 'export':{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='耿茗傑工作台备份-'+todayKey()+'.json';a.click();break;}
     case 'import':{const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=()=>{const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{state=mergeObj(defaultData(),JSON.parse(r.result));saveState(true);render();alert('导入成功');}catch(err){alert('导入失败：'+err.message);}};r.readAsText(f);};inp.click();break;}
+    case 'restoreBak':{idbGet('backup_state').then(bak=>{if(!bak){alert('没有找到备份。同步覆盖前的本地数据备份还不存在（旧版本尚未生成过备份）。');return;}const m=mergeState(state,mergeObj(defaultData(),bak));state=m.state;saveState(true);render();alert(m.changed?'✅ 已把备份中的内容合并回来（'+new Date().toLocaleString()+' 之前的本地数据）':'备份内容与当前数据一致，无需恢复。');});break;}
     case 'reset':{if(confirm('确定清空所有数据？此操作不可撤销。')){state=defaultData();saveState(true);render();}break;}
   }
 });
