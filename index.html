@@ -357,6 +357,7 @@ const EXAM_TYPES=['四级CET-4','六级CET-6','考研英语','雅思IELTS','托�
 const EXERCISE_TYPES=['跑步','慢跑','骑行','游泳','力量训练','瑜伽','拉伸','篮球','羽毛球','乒乓球','俯卧撑','引体向上','深蹲','跳绳','其他'];
 const CHEER_MSGS=['日日不断，功不唐捐。今日全勤，心向光明。','修身如斯，何事不办？今日功成，明日可期。','一念不生，万事毕。日课圆满，心安自在。','知行合一，今日践行。继续前行，不负此心。','今日事今日毕，明日之我必胜今日。','千日功夫千日成，一日不落是真心。','苟日新，日日新，又日新。今日圆满。'];
 const MOODS=[['happy','😊','开心'],['excited','🤩','兴奋'],['grateful','🥰','感恩'],['proud','😤','充实'],['calm','😌','平静'],['tired','😪','疲惫'],['anxious','😰','焦虑'],['angry','😠','烦躁'],['sad','😢','难过'],['down','😔','低落']];
+function moodVal(dk){const m=state.moods[dk];return m?(typeof m==='object'?m.v:m):'';}
 const FINANCE_LINKS=[['📈','东方财富','行情资讯','https://www.eastmoney.com'],['💸','新浪财经','财经门户','https://finance.sina.com.cn'],['🏦','华尔街见闻','全球金融','https://wallstreetcn.com'],['💰','雪球','投资社区','https://xueqiu.com'],['📊','同花顺','行情软件','https://www.10jqka.com.cn'],['🏛','财政部','政策法规','http://www.mof.gov.cn'],['🏦','中国人民银行','货币政策','http://www.pbc.gov.cn'],['📋','证监会','监管信息','http://www.csrc.gov.cn']];
 const AI_LINKS=[['🤖','机器之心','AI前沿','https://www.jiqizhixin.com'],['⚛️','量子位','AI资讯','https://www.qbitai.com'],['🌐','OpenAI','官方博客','https://openai.com'],['🧠','Anthropic','Claude','https://www.anthropic.com'],['🤗','HuggingFace','模型库','https://huggingface.co'],['📰','36氪AI','科技资讯','https://www.36kr.com'],['🔬','arXiv','论文预印本','https://arxiv.org'],['💬','AI新榜','AI排行榜','https://www.ai-newrank.com']];
 const KEY_AI='ai_config';
@@ -464,7 +465,7 @@ async function syncToCloud(){
         const{data:cur}=await _supaClient.from('workbench').select('data').eq('id','main').maybeSingle();
         if(cur&&cur.data){
           const m=mergeState(state,mergeObj(defaultData(),cur.data));
-          if(m.changed){state=m.state;await idbSet(KEY_STATE,state);}
+          if(m.changed){state=m.state;snapState();await idbSet(KEY_STATE,state);}
         }
       }catch(_){/* 拉取失败仍继续推送本地 */}
       const now=new Date().toISOString();
@@ -480,21 +481,34 @@ async function syncToCloud(){
 let _syncingFromCloud=false;
 let _cloudSyncedAt=0;
 let _pushing=false;let _dirty=false;
-/* 深度合并：local 为主，cloud 只补缺口（新增条目/新键），绝不删除本地已有内容 */
+/* 深度合并：新增条目并集；同 id/同键记录按 up 时间戳取最新；绝不删除本地已有内容 */
 function mergeState(local,cloud){
   let changed=false;
   const isObj=x=>x&&typeof x==='object'&&!Array.isArray(x);
+  const upOf=x=>(x&&typeof x==='object'&&typeof x.up==='number')?x.up:0;
+  const hasArr=x=>Object.keys(x).some(k=>Array.isArray(x[k]));
   function deep(a,b){
     if(Array.isArray(a)&&Array.isArray(b)){
       const keyOf=it=>{
         if(it&&typeof it==='object')return(it.id!==undefined&&it.id!==null)?('id:'+it.id):('k:'+JSON.stringify(it));
         return 'v:'+it;
       };
-      const out=a.slice();const seen=new Set(a.map(keyOf));
+      const bm=new Map(b.map(it=>[keyOf(it),it]));
+      const seen=new Set();const out=[];
+      for(const it of a){
+        const k=keyOf(it);seen.add(k);
+        const o=bm.get(k);
+        if(o!==undefined&&upOf(o)>upOf(it)){out.push(o);changed=true;}
+        else out.push(it);
+      }
       for(const it of b){const k=keyOf(it);if(!seen.has(k)){out.push(it);seen.add(k);changed=true;}}
       return out;
     }
     if(isObj(a)&&isObj(b)){
+      if((upOf(a)||upOf(b))&&!hasArr(a)&&!hasArr(b)){
+        if(upOf(b)>upOf(a)){changed=true;return b;}
+        return a;
+      }
       const out=Object.assign({},a);
       for(const k of Object.keys(b)){
         if(a[k]===undefined){out[k]=b[k];changed=true;}
@@ -526,6 +540,7 @@ async function syncFromCloud(){
         // 深度合并而非整份覆盖：云端只补缺，本地内容不丢
         const m=mergeState(state,mergeObj(defaultData(),cloud));
         state=m.state;
+        snapState();
         await idbSet(KEY_STATE,state);
         _cloudSyncedAt=cloudTs;
         await idbSet('cloud_synced_at',cloudTs);
@@ -623,14 +638,51 @@ async function fetchAllHot(){
   return{weibo:null,zhihu:null,bili:null,douyin:null,date:'',fromCache:false};
 }
 
+/* 修改时间戳：保存前对比前后状态，为变化的记录打 up，合并时同 id 取最新 */
+let _prevState=null;
+function snapState(){_prevState=JSON.parse(JSON.stringify(state));}
+function stampChanges(prev,next){
+  if(!prev)return;
+  const now=Date.now();
+  const isObj=x=>x&&typeof x==='object'&&!Array.isArray(x);
+  const strip=o=>{const c=Object.assign({},o);delete c.up;return c;};
+  const eq=(a,b)=>JSON.stringify(strip(a))===JSON.stringify(strip(b));
+  const DATE=/^\d{4}-\d{2}-\d{2}$/;
+  (function walk(p,n){
+    if(Array.isArray(p)&&Array.isArray(n)){
+      const pm=new Map();p.forEach(it=>{if(isObj(it)&&it.id!=null)pm.set(it.id,it);});
+      n.forEach(it=>{
+        if(!isObj(it))return;
+        if(it.id!=null){
+          const o=pm.get(it.id);
+          if(!o){if(typeof it.up!=='number')it.up=now;}
+          else{if(!eq(o,it))it.up=now;walk(o,it);}
+        }
+      });
+      return;
+    }
+    if(isObj(p)&&isObj(n)){
+      for(const k of Object.keys(n)){
+        const pv=p[k],nv=n[k];
+        if(!isObj(nv))continue;
+        if(DATE.test(k)&&!Object.keys(nv).some(key=>Array.isArray(nv[key]))&&(!pv||!eq(pv,nv)))nv.up=now;
+        if(pv)walk(pv,nv);
+      }
+    }
+  })(prev,next);
+}
+
 async function loadState(){
   const local=await idbGet(KEY_STATE);
   if(local)state=mergeObj(defaultData(),local);
+  snapState();
 }
 let _saveTimer=null;
 function saveState(immediate){
   const doSave=async()=>{
     _dirty=true;
+    stampChanges(_prevState,state);
+    snapState();
     await idbSet(KEY_STATE,state);
     await idbSet('updated_at',Date.now());
     if(_supaClient&&_connStatus!=='error')syncToCloud();
@@ -857,7 +909,7 @@ function calInner(showMoodPicker){
   for(let d=1;d<=daysInMonth;d++){
     const dk=y+'-'+pad(m)+'-'+pad(d);
     const isToday=dk===today;
-    const mood=state.moods[dk];const moodEmoji=mood?MOODS.find(([k])=>k===mood)[1]:'';
+    const mood=moodVal(dk);const moodEmoji=mood?MOODS.find(([k])=>k===mood)[1]:'';
     const dayTodos=state.todos.filter(x=>x.date===dk);
     const doneCnt=dayTodos.filter(x=>x.done).length;
     const ci=ciCount(dk);
@@ -867,7 +919,7 @@ function calInner(showMoodPicker){
     cells+='<div class="cal-cell'+(isToday?' today':'')+(ui.calSel===dk?' sel':'')+'" data-act="cal-day" data-d="'+dk+'"><div class="dn">'+d+'</div>'+(moodEmoji?'<div class="mood">'+moodEmoji+'</div>':'')+(total?'<div class="ci-bar"><i style="width:'+pct+'%"></i></div>':'')+'</div>';
   }
   const sel=ui.calSel||today;
-  const moodPicker=showMoodPicker?'<div class="mood-pick">'+MOODS.map(([k,e,n])=>'<span class="m'+(state.moods[sel]===k?' on':'')+'" data-act="mood-set" data-v="'+k+'" title="'+n+'">'+e+'</span>').join('')+'</div>':'';
+  const moodPicker=showMoodPicker?'<div class="mood-pick">'+MOODS.map(([k,e,n])=>'<span class="m'+(moodVal(sel)===k?' on':'')+'" data-act="mood-set" data-v="'+k+'" title="'+n+'">'+e+'</span>').join('')+'</div>':'';
   return '<div class="cal-head"><button data-act="cal-prev">‹</button><span class="ym">'+y+'年'+m+'月</span><button data-act="cal-next">›</button></div><div class="cal-grid"><div class="dow">一</div><div class="dow">二</div><div class="dow">三</div><div class="dow">四</div><div class="dow">五</div><div class="dow">六</div><div class="dow">日</div>'+cells+'</div>'+moodPicker;
 }
 function calWidget(showMoodPicker){
@@ -1273,7 +1325,7 @@ document.body.addEventListener('click',async e=>{
     case 'cal-next':ui.calMonth=addMonths(ui.calMonth+'-01',1).slice(0,7);render();break;
     case 'cal-day':{const d=el.dataset.d;ui.calSel=d;ui.calMonth=d.slice(0,7);if(ui.view!=='overview'){ui.view='overview';}render();window.scrollTo({top:0,behavior:'smooth'});break;}
     case 'cal-today':{ui.calSel=todayKey();ui.calMonth=todayKey().slice(0,7);render();break;}
-    case 'mood-set':{state.moods[ui.calSel||todayKey()]=el.dataset.v;saveState();render();break;}
+    case 'mood-set':{state.moods[ui.calSel||todayKey()]={v:el.dataset.v,up:Date.now()};saveState();render();break;}
     case 'ex-type':ui.exerciseType=el.dataset.v;render();break;
     case 'ex-log':{const dur=+$('#ex-dur').value||0;if(!dur)break;state.exercise.logs.push({date:todayKey(),type:ui.exerciseType,dur:dur,note:$('#ex-note').value.trim()});saveState();render();break;}
     case 'ex-del':{state.exercise.logs.splice(+el.dataset.i,1);saveState();render();break;}
