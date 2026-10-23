@@ -909,7 +909,7 @@ function calInner(showMoodPicker){
   for(let d=1;d<=daysInMonth;d++){
     const dk=y+'-'+pad(m)+'-'+pad(d);
     const isToday=dk===today;
-    const mood=moodVal(dk);const moodEmoji=mood?MOODS.find(([k])=>k===mood)[1]:'';
+    const mood=moodVal(dk);const moodF=MOODS.find(([k])=>k===mood);const moodEmoji=moodF?moodF[1]:'';
     const dayTodos=state.todos.filter(x=>x.date===dk);
     const doneCnt=dayTodos.filter(x=>x.done).length;
     const ci=ciCount(dk);
@@ -931,7 +931,7 @@ function dayDetail(dk){
   const dayTodos=state.todos.filter(x=>x.date===dk);
   const doneCnt=dayTodos.filter(x=>x.done).length;
   const ci=state.checkins[dk]||{};const ciN=ciCount(dk);
-  const mood=state.moods[dk];const moodEmoji=mood?MOODS.find(([k])=>k===mood)[1]:'';
+  const mood=moodVal(dk);const moodF=MOODS.find(([k])=>k===mood);const moodEmoji=moodF?moodF[1]:'';
   const label=dk===t?'今日':(dk===addDays(t,-1)?'昨日':(dk===addDays(t,1)?'明日':''));
   let h='<div class="day-detail"><div class="dd-head"><span class="dd-date">'+(label?'<span style="color:var(--red);margin-right:6px">'+label+'</span>':'')+dateCN(dk)+'</span>'+(moodEmoji?'<span style="font-size:20px">'+moodEmoji+'</span>':'');
   h+='<span class="dd-stats"><span class="tag-mini">日课 '+doneCnt+'/'+dayTodos.length+'</span><span class="tag-mini">修身 '+ciN+'/6</span>'+(dk!==t?'<button class="dd-back" data-act="cal-today">回到今日</button>':'')+'</span></div>';
