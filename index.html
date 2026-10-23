@@ -456,9 +456,17 @@ async function syncToCloud(){
   if(_syncTimer)clearTimeout(_syncTimer);
   _syncTimer=setTimeout(async()=>{
     _syncTimer=null;
-    if(_pushing)return;
+    if(_pushing){syncToCloud();return;} // 推送进行中则重排，避免本次修改被丢弃
     _pushing=true;setConn('syncing');
     try{
+      // 推送前先拉云端合并，避免整份覆盖冲掉另一台设备刚新增的内容
+      try{
+        const{data:cur}=await _supaClient.from('workbench').select('data').eq('id','main').maybeSingle();
+        if(cur&&cur.data){
+          const m=mergeState(state,mergeObj(defaultData(),cur.data));
+          if(m.changed){state=m.state;await idbSet(KEY_STATE,state);}
+        }
+      }catch(_){/* 拉取失败仍继续推送本地 */}
       const now=new Date().toISOString();
       const{error}=await _supaClient.from('workbench').upsert({id:'main',data:state,updated_at:now});
       if(error)throw error;
