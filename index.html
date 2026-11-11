@@ -389,7 +389,7 @@ function defaultData(){
     ],
     accounts:{personal:{target:52,records:[],topics:[],articles:[]},work:{target:52,records:[],topics:[],articles:[]}},
     concepts:[],novel:{words:0,stage:'构思',notes:[]},
-    reading:[],ideas:[],
+    reading:[],ideas:[],moments:[],
     english:{examType:'四级CET-4',words:0,listening:0,reading:0,speaking:0,logs:[]},
     exercise:{logs:[],weights:[]},
     hottrends:{auto:[],manual:[]},
@@ -860,6 +860,7 @@ const VIEWS={
   novel:{ico:'✒️',name:'小说创作'},
   reading:{ico:'📝',name:'读书札记'},
   ideas:{ico:'⭐',name:'灵感速记'},
+  moments:{ico:'📸',name:'纪念瞬间'},
   english:{ico:'📕',name:'英语学习'},
   exercise:{ico:'💪',name:'运动锻炼'},
   finance:{ico:'💰',name:'财经资讯'},
@@ -1141,6 +1142,29 @@ function vIdeas(){
   return pageHead('⭐ 灵感速记','乍念乍现，随手拈来')+g;
 }
 
+/* ====== 纪念瞬间 ====== */
+let _pendingMomentMedia=[];
+function vMoments(){
+  _pendingMomentMedia=[];
+  let g='<div class="card"><h3>✨ 记录一个值得纪念的瞬间</h3>';
+  g+='<div class="fld" style="margin-bottom:8px"><label>标题</label><input type="text" id="mom-title" placeholder="给这个瞬间起个名字…"></div>';
+  g+='<div class="fld" style="margin-bottom:8px"><label>文字</label><textarea id="mom-text" rows="4" placeholder="写下当时的感受与故事…"></textarea></div>';
+  g+='<div class="fld" style="margin-bottom:8px"><label>日期</label><input type="date" id="mom-date" value="'+todayKey()+'"></div>';
+  g+='<div style="margin-bottom:10px"><label class="media-add-btn" title="添加图片/视频">📷 添加图片/视频<input type="file" id="mom-media" accept="image/*,video/*" multiple style="display:none"></label></div>';
+  g+='<div id="mom-media-preview" class="media-preview"></div>';
+  g+='<button class="btn btn-red" data-act="moment-add">保存这个瞬间</button></div>';
+  const list=state.moments.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  g+=list.length?list.map(m=>{
+    const media=(m.media||[]).filter(x=>_mediaCache[x.id]).map((x,i)=>{
+      const d=_mediaCache[x.id];
+      const tag=d.type==='image'?'<img src="'+d.data+'" class="todo-media-item" data-act="moment-media-view" data-id="'+m.id+'" data-i="'+i+'">':'<video src="'+d.data+'" class="todo-media-item" controls data-id="'+m.id+'" data-i="'+i+'"></video>';
+      return'<span style="position:relative;display:inline-block;margin:4px 4px 0 0">'+tag+'</span>';
+    }).join('');
+    return'<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px"><h3 style="margin:0">'+esc(m.title||'无题')+'</h3><div><button class="icon-btn" data-act="moment-edit" data-id="'+m.id+'">✎</button><button class="icon-btn" data-act="moment-del" data-id="'+m.id+'">✕</button></div></div>'+(m.text?'<div style="margin-bottom:8px;white-space:pre-wrap;line-height:1.7">'+esc(m.text)+'</div>':'')+media+'<div class="meta" style="margin-top:8px"><span>'+(m.date||'')+'</span></div></div>';
+  }).join(''):'<div class="empty">还没有纪念瞬间，记录第一个吧 ✨</div>';
+  return pageHead('📸 纪念瞬间','那些值得珍藏的时光')+g;
+}
+
 /* ====== 英语学习 ====== */
 function vEnglish(){
   const e=state.english;
@@ -1295,7 +1319,7 @@ function vSettings(){
 }
 
 /* ====== 渲染 ====== */
-const RENDER={overview:vOverview,todos:vTodos,checkin:vCheckin,academic:vAcademic,accp:()=>vAccount('personal','🔥','个人公众号','生活感受 + 中华经典'),accw:()=>vAccount('work','💼','工作公众号','工作相关内容 · 独立统计'),concept:vConcept,novel:vNovel,reading:vReading,ideas:vIdeas,english:vEnglish,exercise:vExercise,finance:vFinance,ainews:vAINews,hottrends:vHotTrends,settings:vSettings};
+const RENDER={overview:vOverview,todos:vTodos,checkin:vCheckin,academic:vAcademic,accp:()=>vAccount('personal','🔥','个人公众号','生活感受 + 中华经典'),accw:()=>vAccount('work','💼','工作公众号','工作相关内容 · 独立统计'),concept:vConcept,novel:vNovel,reading:vReading,ideas:vIdeas,moments:vMoments,english:vEnglish,exercise:vExercise,finance:vFinance,ainews:vAINews,hottrends:vHotTrends,settings:vSettings};
 function render(){
   renderNav();renderTabs();
   $('#main').innerHTML=(RENDER[ui.view]||vOverview)();
@@ -1340,6 +1364,8 @@ function bindTodoMedia(){
   if(td)td.onchange=()=>{filesToMedia(td.files,arr=>{_pendingMedia.push(...arr);renderMediaPreview(_pendingMedia,'td-media-preview');td.value='';});};
   const dd=document.getElementById('dd-media');
   if(dd)dd.onchange=()=>{filesToMedia(dd.files,arr=>{_pendingMediaDay.push(...arr);renderMediaPreview(_pendingMediaDay,'dd-media-preview');dd.value='';});};
+  const mom=document.getElementById('mom-media');
+  if(mom)mom.onchange=()=>{filesToMedia(mom.files,arr=>{_pendingMomentMedia.push(...arr);renderMediaPreview(_pendingMomentMedia,'mom-media-preview');mom.value='';});};
 }
 function todoMediaHTML(x){
   if(!x.media||!x.media.length)return'';
@@ -1377,6 +1403,10 @@ document.body.addEventListener('click',async e=>{
     case 'todo-media-add':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x)break;const inp=document.createElement('input');inp.type='file';inp.accept='image/*,video/*';inp.multiple=true;inp.style.display='none';inp.onchange=()=>{filesToMedia(inp.files,arr=>{x.media=x.media||[];x.media.push(...arr);saveState();render();});inp.remove();};document.body.appendChild(inp);inp.click();break;}
     case 'todo-media-del':{const x=state.todos.find(t=>t.id===el.dataset.id);if(x&&x.media){const m=x.media[+el.dataset.i];if(m)mediaDel(m.id);x.media.splice(+el.dataset.i,1);saveState();render();}break;}
     case 'todo-media-view':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x||!x.media)break;const m=x.media[+el.dataset.i];if(!m)break;const d=_mediaCache[m.id]||m;if(!d.data)break;const bg=document.createElement('div');bg.className='todo-media-view';bg.innerHTML=d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" controls autoplay></video>';bg.onclick=()=>bg.remove();document.body.appendChild(bg);break;}
+    case 'moment-add':{const t=$('#mom-title'),tx=$('#mom-text'),d=$('#mom-date');if(!t)break;if(!t.value.trim()&&!tx.value.trim()){alert('至少写点标题或文字吧');break;}state.moments.unshift({id:uid(),title:t.value.trim(),text:tx?tx.value.trim():'',date:d&&d.value?d.value:todayKey(),media:_pendingMomentMedia.slice()});_pendingMomentMedia=[];saveState();render();break;}
+    case 'moment-del':{const m=state.moments.find(x=>x.id===el.dataset.id);if(m&&m.media)m.media.forEach(x=>mediaDel(x.id));state.moments=state.moments.filter(x=>x.id!==el.dataset.id);saveState();render();break;}
+    case 'moment-edit':{const m=state.moments.find(x=>x.id===el.dataset.id);if(!m)break;showEditModal('编辑瞬间',[{id:'title',label:'标题',type:'text',value:m.title},{id:'text',label:'文字',type:'textarea',value:m.text},{id:'date',label:'日期',type:'date',value:m.date}],v=>{m.title=v.title;m.text=v.text;m.date=v.date;saveState();render();});break;}
+    case 'moment-media-view':{const m=state.moments.find(x=>x.id===el.dataset.id);if(!m||!m.media)break;const mm=m.media[+el.dataset.i];if(!mm)break;const d=_mediaCache[mm.id];if(!d||!d.data)break;const bg=document.createElement('div');bg.className='todo-media-view';bg.innerHTML=d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" controls autoplay></video>';bg.onclick=()=>bg.remove();document.body.appendChild(bg);break;}
     case 'todo-edit':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x)break;showEditModal('编辑日课',[{id:'text',label:'内容',value:x.text},{id:'tag',label:'标签',type:'select',options:TODO_TAGS,value:x.tag}],v=>{Object.assign(x,{text:v.text,tag:v.tag});saveState();render();});break;}
     case 'todo-filter':ui.todoTag=el.dataset.v;render();break;
     case 'toggle-sec':{const body=el.nextElementSibling;el.classList.toggle('open');body.classList.toggle('open');break;}
