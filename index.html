@@ -695,7 +695,14 @@ function stampChanges(prev,next){
         if(!isObj(it))return;
         if(it.id!=null){
           const o=pm.get(it.id);
-          if(!o){if(typeof it.up!=='number')it.up=now;}
+          if(!o){
+            if(typeof it.up!=='number')it.up=now;
+            for(const k of Object.keys(it)){
+              const v=it[k];
+              if(Array.isArray(v))v.forEach(sub=>{if(isObj(sub)&&typeof sub.up!=='number')sub.up=now;});
+              else if(isObj(v)&&typeof v.up!=='number')v.up=now;
+            }
+          }
           else{if(!eq(o,it))it.up=now;walk(o,it);}
         }
       });
