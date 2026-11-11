@@ -1281,7 +1281,7 @@ function addTodo(text,tag,date,media){
 function filesToMedia(files,cb){
   const out=[];let left=files.length;if(!left){cb(out);return;}
   for(const f of files){
-    if(f.size>30*1024*1024){alert((f.name||'文件')+' 超过 30MB，已跳过');if(--left===0)cb(out);continue;}
+    if(f.size>100*1024*1024){alert((f.name||'文件')+' 超过 100MB，已跳过');if(--left===0)cb(out);continue;}
     const r=new FileReader();
     r.onload=()=>{out.push({type:f.type.startsWith('video')?'video':'image',data:r.result,name:f.name});if(--left===0)cb(out);};
     r.readAsDataURL(f);
