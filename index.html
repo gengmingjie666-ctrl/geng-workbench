@@ -502,6 +502,8 @@ async function syncToCloud(){
         }
       }catch(_){/* 拉取失败仍继续推送本地 */}
       const now=new Date().toISOString();
+      // 推送前压缩 state 里过大的图片，避免请求体超限导致连接失败
+      await compressStateImages();
       const{error}=await _supaClient.from('workbench').upsert({id:'main',data:state,updated_at:now});
       if(error)throw error;
       _dirty=false;
@@ -1377,6 +1379,30 @@ function addTodo(text,tag,date,media){
 /* ====== 媒体处理辅助 ====== */
 // 优先用 state 里的 data（图片会同步到云端），否则从本地 IndexedDB 缓存取（视频只存本地）
 function resolveMedia(m){if(!m)return null;if(m.data)return m;return _mediaCache[m.id]||m;}
+// 图片压缩：最大边 1920px，JPEG 质量 0.7，避免 base64 太大拖垮云同步
+function compressImage(dataUrl,maxDim,quality){return new Promise(res=>{
+  const img=new Image();img.onload=()=>{
+    let w=img.width,h=img.height;
+    if(w>maxDim||h>maxDim){if(w>h){h=Math.round(h*maxDim/w);w=maxDim;}else{w=Math.round(w*maxDim/h);h=maxDim;}}
+    const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+    const ctx=cv.getContext('2d');ctx.drawImage(img,0,0,w,h);
+    res(cv.toDataURL('image/jpeg',quality));
+  };img.onerror=()=>res(dataUrl);img.src=dataUrl;
+});}
+// 推送前压缩 state 里所有 > 200KB 的图片，避免请求体超限
+async function compressStateImages(){
+  const allMedia=[];
+  (state.todos||[]).forEach(t=>(t.media||[]).forEach(m=>allMedia.push(m)));
+  (state.moments||[]).forEach(m=>(m.media||[]).forEach(x=>allMedia.push(x)));
+  for(const m of allMedia){
+    if(m.type==='image'&&m.data&&m.data.length>200000){
+      try{
+        m.data=await compressImage(m.data,1920,0.7);
+        await mediaPut(m.id,{type:m.type,data:m.data,name:m.name});
+      }catch(e){}
+    }
+  }
+}
 function filesToMedia(files,cb){
   const out=[];let left=files.length;if(!left){cb(out);return;}
   for(const f of files){
@@ -1384,10 +1410,14 @@ function filesToMedia(files,cb){
     const r=new FileReader();
     r.onload=async()=>{
       const id=uid();const type=f.type.startsWith('video')?'video':'image';
-      await mediaPut(id,{type,data:r.result,name:f.name}); // 始终存本地 IndexedDB
-      // 图片额外把 base64 放进 state 参与云同步；视频太大只存本地
+      let data=r.result;
+      // 图片压缩后再存储，确保不超过云同步限制
+      if(type==='image'){
+        try{data=await compressImage(data,1920,0.7);}catch(e){}
+      }
+      await mediaPut(id,{type,data,name:f.name});
       const item={id,type,name:f.name};
-      if(type==='image')item.data=r.result;
+      if(type==='image')item.data=data;
       out.push(item);
       if(--left===0)cb(out);
     };
