@@ -1302,7 +1302,7 @@ function todoMediaHTML(x){
   if(!x.media||!x.media.length)return'';
   return'<div class="todo-media">'+x.media.map((m,i)=>{
     const tag=m.type==='image'?'<img src="'+m.data+'" class="todo-media-item" data-act="todo-media-view" data-id="'+x.id+'" data-i="'+i+'">':'<video src="'+m.data+'" class="todo-media-item" controls data-id="'+x.id+'" data-i="'+i+'"></video>';
-    return tag+'<button class="icon-btn" style="position:relative;top:-40px;left:-20px;background:var(--paper)" data-act="todo-media-del" data-id="'+x.id+'" data-i="'+i+'">✕</button>';
+    return'<span style="position:relative;display:inline-block">'+tag+'<button class="icon-btn" style="position:absolute;top:-6px;right:-6px;background:var(--paper);border-radius:50%;padding:0;width:18px;height:18px;font-size:11px;line-height:16px" data-act="todo-media-del" data-id="'+x.id+'" data-i="'+i+'">✕</button></span>';
   }).join('')+'</div>';
 }
 
