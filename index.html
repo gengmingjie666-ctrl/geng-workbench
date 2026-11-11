@@ -545,7 +545,18 @@ function mergeState(local,cloud){
       return out;
     }
     if(isObj(a)&&isObj(b)){
-      if((upOf(a)||upOf(b))&&!hasArr(a)&&!hasArr(b)){
+      // 带数组的对象（todo/moment）：先比较 up，非数组字段取最新，数组深度合并
+      if(hasArr(a)&&hasArr(b)){
+        let out;
+        if(upOf(b)>upOf(a)){out=Object.assign({},b);changed=true;}  // 云端更新，非数组字段用云端
+        else{out=Object.assign({},a);}  // 本地更新或相同，非数组字段用本地
+        // 数组（media）始终深度合并，保证两边的图片都不丢
+        for(const k of Object.keys(out)){
+          if(Array.isArray(out[k])&&Array.isArray(b[k]))out[k]=deep(a[k],b[k]);
+        }
+        return out;
+      }
+      if((upOf(a)||upOf(b))){
         if(upOf(b)>upOf(a)){changed=true;return b;}
         return a;
       }
