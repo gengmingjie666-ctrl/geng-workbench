@@ -570,8 +570,7 @@ async function syncFromCloud(){
     if(data&&data.data){
       const cloud=data.data;
       const cloudTs=new Date(data.updated_at).getTime()||0;
-      const localTs=(await idbGet('updated_at'))||0;
-      if(cloudTs>_cloudSyncedAt&&cloudTs>localTs){
+      if(cloudTs>_cloudSyncedAt){
         // 覆盖前备份当前本地状态，万一同步冲突可找回
         const cur=await idbGet(KEY_STATE);
         if(cur)await idbSet('backup_state',cur);
@@ -584,8 +583,9 @@ async function syncFromCloud(){
         await idbSet('cloud_synced_at',cloudTs);
         if(m.changed)syncToCloud(); // 把合并结果推回云端，让另一台设备也能拿到
         render();
-      }else if(localTs>cloudTs&&localTs>_cloudSyncedAt){
-        syncToCloud();
+      }else{
+        // 云端无更新，若本地有未推送修改则推送
+        if(_dirty||_pushing===false&&(await idbGet('updated_at')||0)>_cloudSyncedAt)syncToCloud();
       }
     }
   }catch{}finally{_syncingFromCloud=false;}
