@@ -531,8 +531,13 @@ function mergeState(local,cloud){
       for(const it of a){
         const k=keyOf(it);seen.add(k);
         const o=bm.get(k);
-        if(o!==undefined&&upOf(o)>upOf(it)){out.push(o);changed=true;}
-        else out.push(it);
+        if(o!==undefined){
+          if(upOf(o)>upOf(it)){out.push(o);changed=true;}
+          else if(upOf(o)===0&&upOf(it)===0&&isObj(it)&&isObj(o)){
+            // 没有时间戳的对象（如 media），深度合并，云端补缺
+            out.push(deep(it,o));
+          }else out.push(it);
+        }else out.push(it);
       }
       for(const it of b){const k=keyOf(it);if(!seen.has(k)){out.push(it);seen.add(k);changed=true;}}
       return out;
@@ -1155,8 +1160,9 @@ function vMoments(){
   g+='<button class="btn btn-red" data-act="moment-add">保存这个瞬间</button></div>';
   const list=state.moments.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   g+=list.length?list.map(m=>{
-    const media=(m.media||[]).filter(x=>_mediaCache[x.id]).map((x,i)=>{
-      const d=_mediaCache[x.id];
+    const media=(m.media||[]).map((x,i)=>{
+      const d=resolveMedia(x);
+      if(!d||!d.data)return'';
       const tag=d.type==='image'?'<img src="'+d.data+'" class="todo-media-item" data-act="moment-media-view" data-id="'+m.id+'" data-i="'+i+'">':'<video src="'+d.data+'" class="todo-media-item" controls data-id="'+m.id+'" data-i="'+i+'"></video>';
       return'<span style="position:relative;display:inline-block;margin:4px 4px 0 0">'+tag+'</span>';
     }).join('');
@@ -1340,6 +1346,8 @@ function addTodo(text,tag,date,media){
 }
 
 /* ====== 媒体处理辅助 ====== */
+// 优先用 state 里的 data（图片会同步到云端），否则从本地 IndexedDB 缓存取（视频只存本地）
+function resolveMedia(m){if(!m)return null;if(m.data)return m;return _mediaCache[m.id]||m;}
 function filesToMedia(files,cb){
   const out=[];let left=files.length;if(!left){cb(out);return;}
   for(const f of files){
@@ -1347,8 +1355,11 @@ function filesToMedia(files,cb){
     const r=new FileReader();
     r.onload=async()=>{
       const id=uid();const type=f.type.startsWith('video')?'video':'image';
-      await mediaPut(id,{type,data:r.result,name:f.name});
-      out.push({id,type,name:f.name});
+      await mediaPut(id,{type,data:r.result,name:f.name}); // 始终存本地 IndexedDB
+      // 图片额外把 base64 放进 state 参与云同步；视频太大只存本地
+      const item={id,type,name:f.name};
+      if(type==='image')item.data=r.result;
+      out.push(item);
       if(--left===0)cb(out);
     };
     r.readAsDataURL(f);
@@ -1356,7 +1367,7 @@ function filesToMedia(files,cb){
 }
 function renderMediaPreview(arr,containerId){
   const box=document.getElementById(containerId);if(!box)return;
-  box.innerHTML=arr.map((m,i)=>{const d=_mediaCache[m.id]||m;return'<span class="mp">'+(d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" muted></video>')+'<button class="media-del" data-del="'+i+'">✕</button></span>';}).join('');
+  box.innerHTML=arr.map((m,i)=>{const d=resolveMedia(m);return'<span class="mp">'+(d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" muted></video>')+'<button class="media-del" data-del="'+i+'">✕</button></span>';}).join('');
   box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const m=arr[+b.dataset.del];mediaDel(m.id);arr.splice(+b.dataset.del,1);renderMediaPreview(arr,containerId);});
 }
 function bindTodoMedia(){
@@ -1370,8 +1381,8 @@ function bindTodoMedia(){
 function todoMediaHTML(x){
   if(!x.media||!x.media.length)return'';
   return'<div class="todo-media">'+x.media.map((m,i)=>{
-    const d=_mediaCache[m.id]||m;
-    if(!d.data)return''; // 媒体数据未加载（可能在其他设备添加的），跳过
+    const d=resolveMedia(m);
+    if(!d||!d.data)return'';
     const tag=d.type==='image'?'<img src="'+d.data+'" class="todo-media-item" data-act="todo-media-view" data-id="'+x.id+'" data-i="'+i+'">':'<video src="'+d.data+'" class="todo-media-item" controls data-id="'+x.id+'" data-i="'+i+'"></video>';
     return'<span style="position:relative;display:inline-block">'+tag+'<button class="icon-btn" style="position:absolute;top:-6px;right:-6px;background:var(--paper);border-radius:50%;padding:0;width:18px;height:18px;font-size:11px;line-height:16px" data-act="todo-media-del" data-id="'+x.id+'" data-i="'+i+'">✕</button></span>';
   }).join('')+'</div>';
@@ -1402,11 +1413,11 @@ document.body.addEventListener('click',async e=>{
     case 'todo-del':state.todos=state.todos.filter(t=>t.id!==el.dataset.id);saveState();render();break;
     case 'todo-media-add':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x)break;const inp=document.createElement('input');inp.type='file';inp.accept='image/*,video/*';inp.multiple=true;inp.style.display='none';inp.onchange=()=>{filesToMedia(inp.files,arr=>{x.media=x.media||[];x.media.push(...arr);saveState();render();});inp.remove();};document.body.appendChild(inp);inp.click();break;}
     case 'todo-media-del':{const x=state.todos.find(t=>t.id===el.dataset.id);if(x&&x.media){const m=x.media[+el.dataset.i];if(m)mediaDel(m.id);x.media.splice(+el.dataset.i,1);saveState();render();}break;}
-    case 'todo-media-view':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x||!x.media)break;const m=x.media[+el.dataset.i];if(!m)break;const d=_mediaCache[m.id]||m;if(!d.data)break;const bg=document.createElement('div');bg.className='todo-media-view';bg.innerHTML=d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" controls autoplay></video>';bg.onclick=()=>bg.remove();document.body.appendChild(bg);break;}
+    case 'todo-media-view':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x||!x.media)break;const m=x.media[+el.dataset.i];const d=resolveMedia(m);if(!d||!d.data)break;const bg=document.createElement('div');bg.className='todo-media-view';bg.innerHTML=d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" controls autoplay></video>';bg.onclick=()=>bg.remove();document.body.appendChild(bg);break;}
     case 'moment-add':{const t=$('#mom-title'),tx=$('#mom-text'),d=$('#mom-date');if(!t)break;if(!t.value.trim()&&!tx.value.trim()){alert('至少写点标题或文字吧');break;}state.moments.unshift({id:uid(),title:t.value.trim(),text:tx?tx.value.trim():'',date:d&&d.value?d.value:todayKey(),media:_pendingMomentMedia.slice()});_pendingMomentMedia=[];saveState();render();break;}
     case 'moment-del':{const m=state.moments.find(x=>x.id===el.dataset.id);if(m&&m.media)m.media.forEach(x=>mediaDel(x.id));state.moments=state.moments.filter(x=>x.id!==el.dataset.id);saveState();render();break;}
     case 'moment-edit':{const m=state.moments.find(x=>x.id===el.dataset.id);if(!m)break;showEditModal('编辑瞬间',[{id:'title',label:'标题',type:'text',value:m.title},{id:'text',label:'文字',type:'textarea',value:m.text},{id:'date',label:'日期',type:'date',value:m.date}],v=>{m.title=v.title;m.text=v.text;m.date=v.date;saveState();render();});break;}
-    case 'moment-media-view':{const m=state.moments.find(x=>x.id===el.dataset.id);if(!m||!m.media)break;const mm=m.media[+el.dataset.i];if(!mm)break;const d=_mediaCache[mm.id];if(!d||!d.data)break;const bg=document.createElement('div');bg.className='todo-media-view';bg.innerHTML=d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" controls autoplay></video>';bg.onclick=()=>bg.remove();document.body.appendChild(bg);break;}
+    case 'moment-media-view':{const m=state.moments.find(x=>x.id===el.dataset.id);if(!m||!m.media)break;const mm=m.media[+el.dataset.i];const d=resolveMedia(mm);if(!d||!d.data)break;const bg=document.createElement('div');bg.className='todo-media-view';bg.innerHTML=d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" controls autoplay></video>';bg.onclick=()=>bg.remove();document.body.appendChild(bg);break;}
     case 'todo-edit':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x)break;showEditModal('编辑日课',[{id:'text',label:'内容',value:x.text},{id:'tag',label:'标签',type:'select',options:TODO_TAGS,value:x.tag}],v=>{Object.assign(x,{text:v.text,tag:v.tag});saveState();render();});break;}
     case 'todo-filter':ui.todoTag=el.dataset.v;render();break;
     case 'toggle-sec':{const body=el.nextElementSibling;el.classList.toggle('open');body.classList.toggle('open');break;}
@@ -1507,6 +1518,13 @@ render=function(){renderNav();renderTabs();let viewFn=RENDER[ui.view];if(!viewFn
 async function init(){
   await loadState();
   await mediaGetAll(); // 加载媒体缓存到内存
+  // 迁移：把本地 IndexedDB 里的图片 data 补回 state，使图片能云同步
+  let migrated=false;
+  const allMedia=[...(state.todos||[]).flatMap(t=>t.media||[]),...(state.moments||[]).flatMap(m=>m.media||[])];
+  for(const m of allMedia){
+    if(!m.data&&m.type==='image'&&_mediaCache[m.id]&&_mediaCache[m.id].data){m.data=_mediaCache[m.id].data;migrated=true;}
+  }
+  if(migrated){snapState();await idbSet(KEY_STATE,state);}
   setConn('offline');
   render();
   checkCheer();
