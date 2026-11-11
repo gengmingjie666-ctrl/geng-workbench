@@ -1346,7 +1346,7 @@ function showTopicPicker(hotId,hotType,hotContent){
 function vSettings(){
   const cfg=sbConfig();
   const aiCfg=state.ai||{provider:'zhipu',key:''};
-  const g='<div class="card"><h3>☁️ Supabase 云端同步</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">填写 Supabase 项目 URL 和 anon key 开启云端同步。<br>未填写时数据仅保存在本地（IndexedDB），不会丢失。<br>需在 Supabase 控制台创建数据表：<code style="background:var(--card-deep);padding:2px 6px;border-radius:4px;font-size:11px">create table workbench (id text primary key, data jsonb, updated_at timestamptz default now());</code></p><div class="form-grid"><div class="fld full"><label>Project URL</label><input type="text" id="sb-url" value="'+esc(cfg.url||'')+'" placeholder="https://xxxx.supabase.co"></div><div class="fld full"><label>Anon Key</label><input type="text" id="sb-key" value="'+esc(cfg.key||'')+'" placeholder="eyJ..."></div></div><button class="btn" data-act="sb-save">保存并连接</button> <button class="btn btn-ghost" data-act="sb-test">测试连接</button> <button class="btn btn-red" data-act="sb-clear" style="margin-left:auto">断开</button></div>'+
+  const g='<div class="card"><h3>☁️ Supabase 云端同步</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">填写 Supabase 项目 URL 和 anon key 开启云端同步。<br>未填写时数据仅保存在本地（IndexedDB），不会丢失。<br>需在 Supabase 控制台创建数据表：<code style="background:var(--card-deep);padding:2px 6px;border-radius:4px;font-size:11px">create table workbench (id text primary key, data jsonb, updated_at timestamptz default now());</code></p><div class="form-grid"><div class="fld full"><label>Project URL</label><input type="text" id="sb-url" value="'+esc(cfg.url||'')+'" placeholder="https://xxxx.supabase.co"></div><div class="fld full"><label>Anon Key</label><input type="text" id="sb-key" value="'+esc(cfg.key||'')+'" placeholder="eyJ..."></div></div><button class="btn" data-act="sb-save">保存并连接</button> <button class="btn btn-ghost" data-act="sb-test">测试连接</button> <button class="btn btn-red" data-act="sb-clear" style="margin-left:auto">断开</button> <button class="btn btn-ghost" data-act="sb-diagnose" style="margin-left:8px">🔍 诊断同步</button></div>'+
   '<div class="card"><h3>🤖 AI 服务配置</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">配置 AI 服务后，「每日热点」板块可自动生成爆款解读。<br>推荐智谱 GLM（注册送 2000 万 tokens 免费额度：<a href="https://bigmodel.cn/console/overview" target="_blank" style="color:var(--green)">bigmodel.cn</a>）</p><div class="form-grid"><div class="fld"><label>服务商</label><select id="ai-provider"><option value="zhipu"'+(aiCfg.provider==='zhipu'?' selected':'')+'>智谱 GLM</option><option value="deepseek"'+(aiCfg.provider==='deepseek'?' selected':'')+'>DeepSeek</option></select></div><div class="fld full"><label>API Key</label><input type="text" id="ai-key" value="'+esc(aiCfg.key||'')+'" placeholder="粘贴你的 API Key…"></div></div><button class="btn" data-act="ai-save">保存</button> <button class="btn btn-ghost" data-act="ai-test">测试连接</button> <button class="btn btn-red" data-act="ai-clear" style="margin-left:auto">清除</button></div>'+
   '<div class="card"><h3>💾 数据管理</h3><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-ghost" data-act="export">导出备份(JSON)</button><button class="btn btn-ghost" data-act="import">导入备份</button><button class="btn btn-ghost" data-act="restoreBak">♻️ 恢复同步前备份</button><button class="btn btn-red" data-act="reset">清空所有数据</button></div><p style="font-size:12px;color:var(--sub);margin:8px 0 0">「恢复同步前备份」：如果发现同步后内容丢失，点这里可以把上次同步覆盖前的本地数据合并回来。</p></div>'+
   '<div class="card"><h3>📱 使用说明</h3><div style="font-size:12.5px;color:var(--ink-soft);line-height:2"><b>桌面端</b>：将本 HTML 文件放在桌面，双击即可打开。可在浏览器中「添加快捷方式」生成桌面图标。<br><b>手机端</b>：在 Safari 中打开 → 分享 →「添加到主屏幕」，即可像 App 一样使用。<br><b>数据同步</b>：配置 Supabase 后，多设备数据自动同步。未配置时数据保存在本地浏览器。<br><b>侧栏折叠</b>：点击侧栏左上角圆形按钮可折叠/展开侧栏，折叠后仅显示图标。</div></div>';
@@ -1497,6 +1497,28 @@ document.body.addEventListener('click',async e=>{
     case 'sb-save':{const url=$('#sb-url').value.trim(),key=$('#sb-key').value.trim();localStorage.setItem(KEY_SB,JSON.stringify({url,key}));if(url&&key){initSupabase();}else{setConn('offline');}render();break;}
     case 'sb-test':{initSupabase();break;}
     case 'sb-clear':{localStorage.removeItem(KEY_SB);_supaClient=null;setConn('offline');render();break;}
+    case 'sb-diagnose':{(async()=>{
+      const lines=[];
+      lines.push('连接状态: '+_connStatus);
+      lines.push('Supabase客户端: '+(_supaClient?'有':'无'));
+      // 本地
+      const localMs=state.moments||[];
+      lines.push('本地瞬间数: '+localMs.length);
+      localMs.forEach((m,i)=>{const img=(m.media||[]).find(x=>x.data);lines.push('  ['+i+'] "'+(m.title||'')+'" 图片:'+(img?'有('+img.data.length+')':'无'));});
+      // 云端
+      if(_supaClient){
+        try{
+          const{data,error}=await _supaClient.from('workbench').select('data').eq('id','main').maybeSingle();
+          if(error){lines.push('查询错误: '+error.message);}
+          else if(data){
+            const cloudMs=(data.data.moments)||[];
+            lines.push('云端瞬间数: '+cloudMs.length);
+            cloudMs.forEach((m,i)=>{const img=(m.media||[]).find(x=>x.data);lines.push('  ['+i+'] "'+(m.title||'')+'" 图片:'+(img?'有('+img.data.length+')':'无'));});
+          }else{lines.push('云端无数据');}
+        }catch(e){lines.push('查询异常: '+e.message);}
+      }
+      alert(lines.join('\n'));
+    })();break;}
     case 'hot-tab':ui.hotTab=el.dataset.v;render();if(ui.hotTab==='auto')setTimeout(loadHotAuto,50);break;
     case 'hot-refresh':loadHotAuto();break;
     case 'hot-manual-add':{const c=$('#hm-content'),s=$('#hm-source'),ht=$('#hm-heat'),lk=$('#hm-link');if(c&&c.value.trim()){state.hottrends.manual.push({id:uid(),date:todayKey(),source:s?s.value:'其他',content:c.value.trim(),heat:ht?ht.value.trim():'',link:lk?lk.value.trim():'',interpretation:''});saveState();render();}break;}
