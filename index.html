@@ -713,16 +713,19 @@ function stampChanges(prev,next){
 async function loadState(){
   const local=await idbGet(KEY_STATE);
   if(local)state=mergeObj(defaultData(),local);
-  // 迁移旧格式媒体：把带 base64 的媒体转存到 IndexedDB，state 只留 id
+  // 迁移：视频的 base64 太大不存 state，转存 IndexedDB；图片的 data 保留在 state 参与云同步
   let migrated=false;
-  for(const t of state.todos){
-    if(Array.isArray(t.media)){
-      for(let i=0;i<t.media.length;i++){
-        const m=t.media[i];
-        if(m&&m.data){ // 旧格式，有 base64
+  const allLists=[state.todos,state.moments];
+  for(const list of allLists){
+    if(!Array.isArray(list))continue;
+    for(const item of list){
+      if(!Array.isArray(item.media))continue;
+      for(let i=0;i<item.media.length;i++){
+        const m=item.media[i];
+        if(m&&m.data&&m.type==='video'){
           const id=m.id||uid();
-          await mediaPut(id,{type:m.type||'image',data:m.data,name:m.name||''});
-          t.media[i]={id,type:m.type||'image',name:m.name||''};
+          await mediaPut(id,{type:'video',data:m.data,name:m.name||''});
+          item.media[i]={id,type:'video',name:m.name||''};
           migrated=true;
         }
       }
@@ -1171,6 +1174,32 @@ function vMoments(){
   return pageHead('📸 纪念瞬间','那些值得珍藏的时光')+g;
 }
 
+/* ====== 编辑纪念瞬间（含图片管理）====== */
+function editMoment(m){
+  const media=(m.media||[]).slice(); // 拷贝，保存前可增删
+  const bg=document.createElement('div');bg.className='modal-bg';
+  const renderPreview=()=>{const box=bg.querySelector('#edit-mom-media');if(box)box.innerHTML=media.map((x,i)=>{const d=resolveMedia(x);if(!d||!d.data)return'';return'<span class="mp">'+(d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" muted></video>')+'<button class="media-del" data-edel="'+i+'">✕</button></span>';}).join('')+media.filter(x=>!resolveMedia(x)||!resolveMedia(x).data).map((x,i)=>'<span class="mp" style="background:#eee;padding:8px;font-size:12px;color:#888">'+(x.name||'媒体')+'（仅本机）<button class="media-del" data-edel="'+i+'">✕</button></span>').join('');box.querySelectorAll('[data-edel]').forEach(b=>b.onclick=()=>{const idx=+b.dataset.edel;mediaDel(media[idx].id);media.splice(idx,1);renderPreview();});};
+  bg.innerHTML='<div class="modal"><h3>编辑瞬间</h3>'+
+    '<div class="fld" style="margin-bottom:8px"><label>标题</label><input type="text" id="em-title" value="'+esc(m.title||'')+'"></div>'+
+    '<div class="fld" style="margin-bottom:8px"><label>文字</label><textarea id="em-text" rows="4">'+esc(m.text||'')+'</textarea></div>'+
+    '<div class="fld" style="margin-bottom:8px"><label>日期</label><input type="date" id="em-date" value="'+esc(m.date||todayKey())+'"></div>'+
+    '<div style="margin-bottom:8px"><label class="media-add-btn" title="添加图片/视频">📷 添加图片/视频<input type="file" id="em-media" accept="image/*,video/*" multiple style="display:none"></label></div>'+
+    '<div id="edit-mom-media" class="media-preview"></div>'+
+    '<div class="btns"><button class="btn btn-red" data-act="em-save">保存</button><button class="btn btn-ghost" data-act="em-cancel">取消</button></div></div>';
+  document.body.appendChild(bg);
+  renderPreview();
+  bg.querySelector('#em-media').onchange=e=>{filesToMedia(e.target.files,arr=>{media.push(...arr);renderPreview();e.target.value='';});};
+  bg.querySelector('[data-act="em-save"]').onclick=()=>{
+    m.title=bg.querySelector('#em-title').value.trim();
+    m.text=bg.querySelector('#em-text').value.trim();
+    m.date=bg.querySelector('#em-date').value;
+    m.media=media;
+    bg.remove();saveState();render();
+  };
+  bg.querySelector('[data-act="em-cancel"]').onclick=()=>bg.remove();
+  bg.addEventListener('click',e=>{if(e.target===bg)bg.remove();});
+}
+
 /* ====== 英语学习 ====== */
 function vEnglish(){
   const e=state.english;
@@ -1416,7 +1445,7 @@ document.body.addEventListener('click',async e=>{
     case 'todo-media-view':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x||!x.media)break;const m=x.media[+el.dataset.i];const d=resolveMedia(m);if(!d||!d.data)break;const bg=document.createElement('div');bg.className='todo-media-view';bg.innerHTML=d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" controls autoplay></video>';bg.onclick=()=>bg.remove();document.body.appendChild(bg);break;}
     case 'moment-add':{const t=$('#mom-title'),tx=$('#mom-text'),d=$('#mom-date');if(!t)break;if(!t.value.trim()&&!tx.value.trim()){alert('至少写点标题或文字吧');break;}state.moments.unshift({id:uid(),title:t.value.trim(),text:tx?tx.value.trim():'',date:d&&d.value?d.value:todayKey(),media:_pendingMomentMedia.slice()});_pendingMomentMedia=[];saveState();render();break;}
     case 'moment-del':{const m=state.moments.find(x=>x.id===el.dataset.id);if(m&&m.media)m.media.forEach(x=>mediaDel(x.id));state.moments=state.moments.filter(x=>x.id!==el.dataset.id);saveState();render();break;}
-    case 'moment-edit':{const m=state.moments.find(x=>x.id===el.dataset.id);if(!m)break;showEditModal('编辑瞬间',[{id:'title',label:'标题',type:'text',value:m.title},{id:'text',label:'文字',type:'textarea',value:m.text},{id:'date',label:'日期',type:'date',value:m.date}],v=>{m.title=v.title;m.text=v.text;m.date=v.date;saveState();render();});break;}
+    case 'moment-edit':{const m=state.moments.find(x=>x.id===el.dataset.id);if(!m)break;editMoment(m);break;}
     case 'moment-media-view':{const m=state.moments.find(x=>x.id===el.dataset.id);if(!m||!m.media)break;const mm=m.media[+el.dataset.i];const d=resolveMedia(mm);if(!d||!d.data)break;const bg=document.createElement('div');bg.className='todo-media-view';bg.innerHTML=d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" controls autoplay></video>';bg.onclick=()=>bg.remove();document.body.appendChild(bg);break;}
     case 'todo-edit':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x)break;showEditModal('编辑日课',[{id:'text',label:'内容',value:x.text},{id:'tag',label:'标签',type:'select',options:TODO_TAGS,value:x.tag}],v=>{Object.assign(x,{text:v.text,tag:v.tag});saveState();render();});break;}
     case 'todo-filter':ui.todoTag=el.dataset.v;render();break;
