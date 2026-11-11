@@ -414,8 +414,8 @@ function idbOpen(){
   return new Promise((res)=>{
     if(_db)return res(_db);
     try{
-      const r=indexedDB.open(DB_NAME,1);
-      r.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE);};
+      const r=indexedDB.open(DB_NAME,2);
+      r.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE);if(!db.objectStoreNames.contains('media'))db.createObjectStore('media');};
       r.onsuccess=e=>{_db=e.target.result;res(_db);};
       r.onerror=()=>res(null);
     }catch(err){res(null);}
@@ -428,6 +428,28 @@ async function idbGet(key){
 async function idbSet(key,val){
   const db=await idbOpen();if(!db)return false;
   return new Promise(res=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(val,key);tx.oncomplete=()=>res(true);tx.onerror=()=>res(false);});
+}
+
+/* ====== 媒体（图片/视频）单独存 IndexedDB，不参与云同步 ====== */
+const _mediaCache={}; // 内存缓存：id -> {type,data,name}
+async function mediaGetAll(){
+  const db=await idbOpen();if(!db)return;
+  return new Promise(res=>{
+    const tx=db.transaction('media','readonly');const st=tx.objectStore('media');
+    const r=st.openCursor();
+    r.onsuccess=e=>{const c=e.target.result;if(c){_mediaCache[c.key]=c.value;c.continue();}else res();};
+    r.onerror=()=>res();
+  });
+}
+async function mediaPut(id,obj){
+  _mediaCache[id]=obj;
+  const db=await idbOpen();if(!db)return false;
+  return new Promise(res=>{const tx=db.transaction('media','readwrite');tx.objectStore('media').put(obj,id);tx.oncomplete=()=>res(true);tx.onerror=()=>res(false);});
+}
+async function mediaDel(id){
+  delete _mediaCache[id];
+  const db=await idbOpen();if(!db)return false;
+  return new Promise(res=>{const tx=db.transaction('media','readwrite');tx.objectStore('media').delete(id);tx.oncomplete=()=>res(true);tx.onerror=()=>res(false);});
 }
 
 /* ====== Supabase 同步 ====== */
@@ -686,6 +708,22 @@ function stampChanges(prev,next){
 async function loadState(){
   const local=await idbGet(KEY_STATE);
   if(local)state=mergeObj(defaultData(),local);
+  // 迁移旧格式媒体：把带 base64 的媒体转存到 IndexedDB，state 只留 id
+  let migrated=false;
+  for(const t of state.todos){
+    if(Array.isArray(t.media)){
+      for(let i=0;i<t.media.length;i++){
+        const m=t.media[i];
+        if(m&&m.data){ // 旧格式，有 base64
+          const id=m.id||uid();
+          await mediaPut(id,{type:m.type||'image',data:m.data,name:m.name||''});
+          t.media[i]={id,type:m.type||'image',name:m.name||''};
+          migrated=true;
+        }
+      }
+    }
+  }
+  if(migrated){snapState();await idbSet(KEY_STATE,state);}
   snapState();
 }
 let _saveTimer=null;
@@ -1283,14 +1321,19 @@ function filesToMedia(files,cb){
   for(const f of files){
     if(f.size>100*1024*1024){alert((f.name||'文件')+' 超过 100MB，已跳过');if(--left===0)cb(out);continue;}
     const r=new FileReader();
-    r.onload=()=>{out.push({type:f.type.startsWith('video')?'video':'image',data:r.result,name:f.name});if(--left===0)cb(out);};
+    r.onload=async()=>{
+      const id=uid();const type=f.type.startsWith('video')?'video':'image';
+      await mediaPut(id,{type,data:r.result,name:f.name});
+      out.push({id,type,name:f.name});
+      if(--left===0)cb(out);
+    };
     r.readAsDataURL(f);
   }
 }
 function renderMediaPreview(arr,containerId){
   const box=document.getElementById(containerId);if(!box)return;
-  box.innerHTML=arr.map((m,i)=>'<span class="mp">'+(m.type==='image'?'<img src="'+m.data+'">':'<video src="'+m.data+'" muted></video>')+'<button class="media-del" data-del="'+i+'">✕</button></span>').join('');
-  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{arr.splice(+b.dataset.del,1);renderMediaPreview(arr,containerId);});
+  box.innerHTML=arr.map((m,i)=>{const d=_mediaCache[m.id]||m;return'<span class="mp">'+(d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" muted></video>')+'<button class="media-del" data-del="'+i+'">✕</button></span>';}).join('');
+  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const m=arr[+b.dataset.del];mediaDel(m.id);arr.splice(+b.dataset.del,1);renderMediaPreview(arr,containerId);});
 }
 function bindTodoMedia(){
   const td=document.getElementById('td-media');
@@ -1301,7 +1344,9 @@ function bindTodoMedia(){
 function todoMediaHTML(x){
   if(!x.media||!x.media.length)return'';
   return'<div class="todo-media">'+x.media.map((m,i)=>{
-    const tag=m.type==='image'?'<img src="'+m.data+'" class="todo-media-item" data-act="todo-media-view" data-id="'+x.id+'" data-i="'+i+'">':'<video src="'+m.data+'" class="todo-media-item" controls data-id="'+x.id+'" data-i="'+i+'"></video>';
+    const d=_mediaCache[m.id]||m;
+    if(!d.data)return''; // 媒体数据未加载（可能在其他设备添加的），跳过
+    const tag=d.type==='image'?'<img src="'+d.data+'" class="todo-media-item" data-act="todo-media-view" data-id="'+x.id+'" data-i="'+i+'">':'<video src="'+d.data+'" class="todo-media-item" controls data-id="'+x.id+'" data-i="'+i+'"></video>';
     return'<span style="position:relative;display:inline-block">'+tag+'<button class="icon-btn" style="position:absolute;top:-6px;right:-6px;background:var(--paper);border-radius:50%;padding:0;width:18px;height:18px;font-size:11px;line-height:16px" data-act="todo-media-del" data-id="'+x.id+'" data-i="'+i+'">✕</button></span>';
   }).join('')+'</div>';
 }
@@ -1330,8 +1375,8 @@ document.body.addEventListener('click',async e=>{
     case 'todo-add-day':{const t=$('#dd-text'),g=$('#dd-tag');if(t&&t.value.trim()){addTodo(t.value.trim(),g?g.value:'普通',el.dataset.d,_pendingMediaDay.slice());_pendingMediaDay=[];}break;}
     case 'todo-del':state.todos=state.todos.filter(t=>t.id!==el.dataset.id);saveState();render();break;
     case 'todo-media-add':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x)break;const inp=document.createElement('input');inp.type='file';inp.accept='image/*,video/*';inp.multiple=true;inp.style.display='none';inp.onchange=()=>{filesToMedia(inp.files,arr=>{x.media=x.media||[];x.media.push(...arr);saveState();render();});inp.remove();};document.body.appendChild(inp);inp.click();break;}
-    case 'todo-media-del':{const x=state.todos.find(t=>t.id===el.dataset.id);if(x&&x.media){x.media.splice(+el.dataset.i,1);saveState();render();}break;}
-    case 'todo-media-view':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x||!x.media)break;const m=x.media[+el.dataset.i];if(!m)break;const bg=document.createElement('div');bg.className='todo-media-view';bg.innerHTML=m.type==='image'?'<img src="'+m.data+'">':'<video src="'+m.data+'" controls autoplay></video>';bg.onclick=()=>bg.remove();document.body.appendChild(bg);break;}
+    case 'todo-media-del':{const x=state.todos.find(t=>t.id===el.dataset.id);if(x&&x.media){const m=x.media[+el.dataset.i];if(m)mediaDel(m.id);x.media.splice(+el.dataset.i,1);saveState();render();}break;}
+    case 'todo-media-view':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x||!x.media)break;const m=x.media[+el.dataset.i];if(!m)break;const d=_mediaCache[m.id]||m;if(!d.data)break;const bg=document.createElement('div');bg.className='todo-media-view';bg.innerHTML=d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" controls autoplay></video>';bg.onclick=()=>bg.remove();document.body.appendChild(bg);break;}
     case 'todo-edit':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x)break;showEditModal('编辑日课',[{id:'text',label:'内容',value:x.text},{id:'tag',label:'标签',type:'select',options:TODO_TAGS,value:x.tag}],v=>{Object.assign(x,{text:v.text,tag:v.tag});saveState();render();});break;}
     case 'todo-filter':ui.todoTag=el.dataset.v;render();break;
     case 'toggle-sec':{const body=el.nextElementSibling;el.classList.toggle('open');body.classList.toggle('open');break;}
@@ -1431,6 +1476,7 @@ render=function(){renderNav();renderTabs();let viewFn=RENDER[ui.view];if(!viewFn
 /* ====== 初始化 ====== */
 async function init(){
   await loadState();
+  await mediaGetAll(); // 加载媒体缓存到内存
   setConn('offline');
   render();
   checkCheer();
