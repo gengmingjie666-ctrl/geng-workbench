@@ -1494,7 +1494,7 @@ document.body.addEventListener('change',e=>{
 
 /* ====== 手机端"更多"页面 ====== */
 function vMoreMobile(){
-  const items=[['academic','📖','学术进度','论文进度'],['accp','🔥','个人公众号','发文统计'],['accw','💼','工作公众号','发文统计'],['concept','🎯','观念工夫','观念记录'],['novel','✒️','小说字数','创作笔记'],['reading','📝','读书札记','阅读笔记'],['english','📕','英语学习','单词/听力/阅读/口语'],['exercise','💪','运动锻炼','运动/体重记录'],['finance','💰','财经资讯','外部渠道'],['ainews','🤖','AI资讯','外部渠道'],['hottrends','🔥','每日热点','热榜+热梗+AI解读'],['settings','⚙️','设置','同步/备份']];
+  const items=[['academic','📖','学术进度','论文进度'],['accp','🔥','个人公众号','发文统计'],['accw','💼','工作公众号','发文统计'],['concept','🎯','观念工夫','观念记录'],['novel','✒️','小说字数','创作笔记'],['reading','📝','读书札记','阅读笔记'],['moments','📸','纪念瞬间','图片/视频/文字'],['english','📕','英语学习','单词/听力/阅读/口语'],['exercise','💪','运动锻炼','运动/体重记录'],['finance','💰','财经资讯','外部渠道'],['ainews','🤖','AI资讯','外部渠道'],['hottrends','🔥','每日热点','热榜+热梗+AI解读'],['settings','⚙️','设置','同步/备份']];
   const g='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">'+items.map(([v,i,n,s])=>'<div class="card" style="cursor:pointer;margin:0;padding:15px 14px" data-act="nav" data-view="'+v+'"><div style="font-size:22px">'+i+'</div><div style="font-family:Noto Serif SC,serif;font-size:14.5px;font-weight:700;letter-spacing:1px;margin-top:5px">'+n+'</div><div style="font-size:11px;color:var(--ink-faint);margin-top:1px">'+s+'</div></div>').join('')+'</div>';
   return pageHead('🧭 更多模块','学术 · 公众号 · 观念 · 小说 · 札记 · 英语 · 运动 · 资讯 · 设置')+g;
 }
