@@ -1201,6 +1201,28 @@ function editMoment(m){
   bg.querySelector('[data-act="em-cancel"]').onclick=()=>bg.remove();
   bg.addEventListener('click',e=>{if(e.target===bg)bg.remove();});
 }
+function editTodo(x){
+  const media=(x.media||[]).slice();
+  const bg=document.createElement('div');bg.className='modal-bg';
+  const renderPreview=()=>{const box=bg.querySelector('#edit-todo-media');if(box)box.innerHTML=media.map((m,i)=>{const d=resolveMedia(m);if(!d||!d.data)return'<span class="mp" style="background:#eee;padding:8px;font-size:12px;color:#888">'+(m.name||'媒体')+'（仅本机）<button class="media-del" data-edel="'+i+'">✕</button></span>';return'<span class="mp">'+(d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" muted></video>')+'<button class="media-del" data-edel="'+i+'">✕</button></span>';}).join('');box.querySelectorAll('[data-edel]').forEach(b=>b.onclick=()=>{const idx=+b.dataset.edel;mediaDel(media[idx].id);media.splice(idx,1);renderPreview();});};
+  bg.innerHTML='<div class="modal"><h3>编辑日课</h3>'+
+    '<div class="fld" style="margin-bottom:8px"><label>内容</label><input type="text" id="et-text" value="'+esc(x.text||'')+'"></div>'+
+    '<div class="fld" style="margin-bottom:8px"><label>标签</label><select id="et-tag">'+TODO_TAGS.map(o=>'<option'+(o===x.tag?' selected':'')+'>'+esc(o)+'</option>').join('')+'</select></div>'+
+    '<div style="margin-bottom:8px"><label class="media-add-btn" title="添加图片/视频">📷 添加图片/视频<input type="file" id="et-media" accept="image/*,video/*" multiple style="display:none"></label></div>'+
+    '<div id="edit-todo-media" class="media-preview"></div>'+
+    '<div class="btns"><button class="btn btn-red" data-act="et-save">保存</button><button class="btn btn-ghost" data-act="et-cancel">取消</button></div></div>';
+  document.body.appendChild(bg);
+  renderPreview();
+  bg.querySelector('#et-media').onchange=e=>{filesToMedia(e.target.files,arr=>{media.push(...arr);renderPreview();e.target.value='';});};
+  bg.querySelector('[data-act="et-save"]').onclick=()=>{
+    x.text=bg.querySelector('#et-text').value.trim();
+    x.tag=bg.querySelector('#et-tag').value;
+    x.media=media;
+    bg.remove();saveState();render();
+  };
+  bg.querySelector('[data-act="et-cancel"]').onclick=()=>bg.remove();
+  bg.addEventListener('click',e=>{if(e.target===bg)bg.remove();});
+}
 
 /* ====== 英语学习 ====== */
 function vEnglish(){
@@ -1477,7 +1499,7 @@ document.body.addEventListener('click',async e=>{
     case 'moment-del':{const m=state.moments.find(x=>x.id===el.dataset.id);if(m&&m.media)m.media.forEach(x=>mediaDel(x.id));state.moments=state.moments.filter(x=>x.id!==el.dataset.id);saveState();render();break;}
     case 'moment-edit':{const m=state.moments.find(x=>x.id===el.dataset.id);if(!m)break;editMoment(m);break;}
     case 'moment-media-view':{const m=state.moments.find(x=>x.id===el.dataset.id);if(!m||!m.media)break;const mm=m.media[+el.dataset.i];const d=resolveMedia(mm);if(!d||!d.data)break;const bg=document.createElement('div');bg.className='todo-media-view';bg.innerHTML=d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" controls autoplay></video>';bg.onclick=()=>bg.remove();document.body.appendChild(bg);break;}
-    case 'todo-edit':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x)break;showEditModal('编辑日课',[{id:'text',label:'内容',value:x.text},{id:'tag',label:'标签',type:'select',options:TODO_TAGS,value:x.tag}],v=>{Object.assign(x,{text:v.text,tag:v.tag});saveState();render();});break;}
+    case 'todo-edit':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x)break;editTodo(x);break;}
     case 'todo-filter':ui.todoTag=el.dataset.v;render();break;
     case 'toggle-sec':{const body=el.nextElementSibling;el.classList.toggle('open');body.classList.toggle('open');break;}
     case 'ci-toggle':{const t=todayKey(),c=state.checkins[t]||(state.checkins[t]={});c[el.dataset.k]=!c[el.dataset.k];saveState();render();break;}
