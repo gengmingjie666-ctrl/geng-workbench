@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" type="image/png" href="icon.png">
 <meta name="theme-color" content="#2d4a36">
-<title>耿茗傑 · 个人工作台</title>
+<title>个人工作台</title>
 <style>
 :root{
   --bg:#f2ece0;--card:#fbf7ec;--card-deep:#f7f1e2;
@@ -314,9 +314,9 @@ textarea{resize:vertical;width:100%}
   <aside class="sidebar" id="sidebar">
     <div class="sb-toggle" id="sbToggle" data-act="sb-toggle">‹</div>
     <div class="brand">
-      <div class="seal">耿</div>
+      <div class="seal">你</div>
       <div class="brand-info">
-        <h1>耿茗傑工作台</h1>
+        <h1>你的工作台</h1>
         <p id="todayStr">2026年10月10日 · 星期六</p>
       </div>
     </div>
@@ -330,8 +330,8 @@ textarea{resize:vertical;width:100%}
 
   <!-- 手机顶栏 -->
   <div class="mobile-top">
-    <div class="seal">耿</div>
-    <div><h1>耿茗傑工作台</h1><p id="todayStrM">2026年10月10日 · 星期六</p></div>
+    <div class="seal">你</div>
+    <div><h1>你的工作台</h1><p id="todayStrM">2026年10月10日 · 星期六</p></div>
     <div class="conn offline" id="connM"><span class="dot"></span><span class="txt">本地</span></div>
   </div>
 
@@ -343,12 +343,12 @@ textarea{resize:vertical;width:100%}
 
 <script>
 /* ================================================================
- * 耿茗傑 · 个人工作台  —  单文件版
+ * 个人工作台  —  单文件版
  * 数据层：IndexedDB 本地缓存 + Supabase 云端同步（可选）
  * ================================================================ */
 
 /* ====== 常量 ====== */
-const DB_NAME='GengWorkbench';const STORE='kv';const KEY_STATE='state';const KEY_SB='supabase_config';
+const DB_NAME='GengWorkbench';const STORE='kv';const KEY_STATE='state';const KEY_SB='supabase_config';const KEY_NAME='user_name';
 const CI_ITEMS=[['qi','早起'],['jingang','八部金刚功'],['changshou','八部长寿功'],['guannian','观念观照'],['dushu','读书1小时'],['shui','23点前睡']];
 const TODO_TAGS=['普通','英语','读书','要紧','学术','公众号','观念','小说'];
 const TAG_COLORS={'普通':'#8a8371','英语':'#3d6b7c','读书':'#4a7c59','要紧':'#c23a2b','学术':'#3d6b7c','公众号':'#b5651d','观念':'#7d5a8c','小说':'#2d4a36'};
@@ -455,6 +455,14 @@ async function mediaDel(id){
 /* ====== Supabase 同步 ====== */
 let _supaClient=null;let _connStatus='offline';let _syncTimer=null;
 function sbConfig(){try{return JSON.parse(localStorage.getItem(KEY_SB)||'{}');}catch(e){return{};}}
+function userName(){return localStorage.getItem(KEY_NAME)||'';}
+function applyName(){
+  const n=userName();
+  document.title=(n?n+' · ':'')+'个人工作台';
+  const sealChar=n?n.charAt(0):'你';
+  document.querySelectorAll('.seal').forEach(s=>s.textContent=sealChar);
+  document.querySelectorAll('.brand h1, .mobile-top h1').forEach(h=>h.textContent=(n||'你的')+'工作台');
+}
 function setConn(status){
   _connStatus=status;
   const map={offline:'本地',online:'已同步',syncing:'同步中',error:'连接失败'};
@@ -950,7 +958,7 @@ function showCheer(){
 
 /* ====== 总览 ====== */
 function welcomeText(){
-  const h=new Date().getHours();const n='耿茗傑';
+  const h=new Date().getHours();const n=userName()||'你';
   if(h<5)return n+'，夜深了，早些休息';
   if(h<9)return n+'，晨光初照，一日之计在于晨';
   if(h<12)return n+'，上午好，专注当下';
@@ -1408,7 +1416,8 @@ function showTopicPicker(hotId,hotType,hotContent){
 function vSettings(){
   const cfg=sbConfig();
   const aiCfg=state.ai||{provider:'zhipu',key:''};
-  const g='<div class="card"><h3>☁️ Supabase 云端同步</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">填写 Supabase 项目 URL 和 anon key 开启云端同步。<br>未填写时数据仅保存在本地（IndexedDB），不会丢失。<br>需在 Supabase 控制台创建数据表：<code style="background:var(--card-deep);padding:2px 6px;border-radius:4px;font-size:11px">create table workbench (id text primary key, data jsonb, updated_at timestamptz default now());</code></p><div class="form-grid"><div class="fld full"><label>Project URL</label><input type="text" id="sb-url" value="'+esc(cfg.url||'')+'" placeholder="https://xxxx.supabase.co"></div><div class="fld full"><label>Anon Key</label><input type="text" id="sb-key" value="'+esc(cfg.key||'')+'" placeholder="eyJ..."></div></div><button class="btn" data-act="sb-save">保存并连接</button> <button class="btn btn-ghost" data-act="sb-test">测试连接</button> <button class="btn btn-red" data-act="sb-clear" style="margin-left:auto">断开</button> <button class="btn btn-ghost" data-act="sb-diagnose" style="margin-left:8px">🔍 诊断同步</button></div>'+
+  const g='<div class="card"><h3>👤 个人信息</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px">设置你的称呼，用于页面标题、问候语和备份文件名。仅保存在本地浏览器，不会上传。</p><div class="form-grid"><div class="fld full"><label>你的名字</label><input type="text" id="user-name" value="'+esc(userName())+'" placeholder="例如：小明"></div></div><button class="btn" data-act="name-save">保存</button></div>'+
+  '<div class="card"><h3>☁️ Supabase 云端同步</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">填写 Supabase 项目 URL 和 anon key 开启云端同步。<br>未填写时数据仅保存在本地（IndexedDB），不会丢失。<br>需在 Supabase 控制台创建数据表：<code style="background:var(--card-deep);padding:2px 6px;border-radius:4px;font-size:11px">create table workbench (id text primary key, data jsonb, updated_at timestamptz default now());</code></p><div class="form-grid"><div class="fld full"><label>Project URL</label><input type="text" id="sb-url" value="'+esc(cfg.url||'')+'" placeholder="https://xxxx.supabase.co"></div><div class="fld full"><label>Anon Key</label><input type="text" id="sb-key" value="'+esc(cfg.key||'')+'" placeholder="eyJ..."></div></div><button class="btn" data-act="sb-save">保存并连接</button> <button class="btn btn-ghost" data-act="sb-test">测试连接</button> <button class="btn btn-red" data-act="sb-clear" style="margin-left:auto">断开</button> <button class="btn btn-ghost" data-act="sb-diagnose" style="margin-left:8px">🔍 诊断同步</button></div>'+
   '<div class="card"><h3>🤖 AI 服务配置</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">配置 AI 服务后，「每日热点」板块可自动生成爆款解读。<br>推荐智谱 GLM（注册送 2000 万 tokens 免费额度：<a href="https://bigmodel.cn/console/overview" target="_blank" style="color:var(--green)">bigmodel.cn</a>）</p><div class="form-grid"><div class="fld"><label>服务商</label><select id="ai-provider"><option value="zhipu"'+(aiCfg.provider==='zhipu'?' selected':'')+'>智谱 GLM</option><option value="deepseek"'+(aiCfg.provider==='deepseek'?' selected':'')+'>DeepSeek</option></select></div><div class="fld full"><label>API Key</label><input type="text" id="ai-key" value="'+esc(aiCfg.key||'')+'" placeholder="粘贴你的 API Key…"></div></div><button class="btn" data-act="ai-save">保存</button> <button class="btn btn-ghost" data-act="ai-test">测试连接</button> <button class="btn btn-red" data-act="ai-clear" style="margin-left:auto">清除</button></div>'+
   '<div class="card"><h3>💾 数据管理</h3><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-ghost" data-act="export">导出备份(JSON)</button><button class="btn btn-ghost" data-act="import">导入备份</button><button class="btn btn-ghost" data-act="restoreBak">♻️ 恢复同步前备份</button><button class="btn btn-red" data-act="reset">清空所有数据</button></div><p style="font-size:12px;color:var(--sub);margin:8px 0 0">「恢复同步前备份」：如果发现同步后内容丢失，点这里可以把上次同步覆盖前的本地数据合并回来。</p></div>'+
   '<div class="card"><h3>📱 使用说明</h3><div style="font-size:12.5px;color:var(--ink-soft);line-height:2"><b>桌面端</b>：将本 HTML 文件放在桌面，双击即可打开。可在浏览器中「添加快捷方式」生成桌面图标。<br><b>手机端</b>：在 Safari 中打开 → 分享 →「添加到主屏幕」，即可像 App 一样使用。<br><b>数据同步</b>：配置 Supabase 后，多设备数据自动同步。未配置时数据保存在本地浏览器。<br><b>侧栏折叠</b>：点击侧栏左上角圆形按钮可折叠/展开侧栏，折叠后仅显示图标。</div></div>';
@@ -1585,6 +1594,7 @@ document.body.addEventListener('click',async e=>{
     case 'wt-add':{const v=+$('#wt-val').value;if(!v)break;const w=state.exercise.weights;const idx=w.findIndex(x=>x.date===todayKey());if(idx>-1)w[idx].weight=v;else w.push({date:todayKey(),weight:v});saveState();render();break;}
     case 'eng-tab':ui.engTab=el.dataset.v;render();break;
     case 'eng-log':{const t=ui.engTab||'words',q=+$('#eng-qty').value||0;if(!q)break;state.english[t]+=q;state.english.logs.push({date:todayKey(),type:t,qty:q,note:$('#eng-note').value.trim()});saveState();render();break;}
+    case 'name-save':{const v=$('#user-name').value.trim();if(v)localStorage.setItem(KEY_NAME,v);else localStorage.removeItem(KEY_NAME);applyName();render();break;}
     case 'sb-save':{const url=$('#sb-url').value.trim(),key=$('#sb-key').value.trim();localStorage.setItem(KEY_SB,JSON.stringify({url,key}));if(url&&key){initSupabase();}else{setConn('offline');}render();break;}
     case 'sb-test':{initSupabase();break;}
     case 'sb-clear':{localStorage.removeItem(KEY_SB);_supaClient=null;setConn('offline');render();break;}
@@ -1620,7 +1630,7 @@ document.body.addEventListener('click',async e=>{
     case 'ai-save':{const p=$('#ai-provider'),k=$('#ai-key');state.ai={provider:p?p.value:'zhipu',key:k?k.value.trim():''};saveState();alert('AI配置已保存并同步');render();break;}
     case 'ai-test':{const r=await callAI('请回复"连接成功"四个字');if(r.ok)alert('✅ AI连接成功！\n\n回复：'+r.text);else alert('❌ '+r.error);break;}
     case 'ai-clear':{state.ai={provider:'zhipu',key:''};saveState();render();break;}
-    case 'export':{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='耿茗傑工作台备份-'+todayKey()+'.json';a.click();break;}
+    case 'export':{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(userName()||'个人')+'工作台备份-'+todayKey()+'.json';a.click();break;}
     case 'import':{const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=()=>{const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{state=mergeObj(defaultData(),JSON.parse(r.result));saveState(true);render();alert('导入成功');}catch(err){alert('导入失败：'+err.message);}};r.readAsText(f);};inp.click();break;}
     case 'restoreBak':{idbGet('backup_state').then(bak=>{if(!bak){alert('没有找到备份。同步覆盖前的本地数据备份还不存在（旧版本尚未生成过备份）。');return;}const m=mergeState(state,mergeObj(defaultData(),bak));state=m.state;saveState(true);render();alert(m.changed?'✅ 已把备份中的内容合并回来（'+new Date().toLocaleString()+' 之前的本地数据）':'备份内容与当前数据一致，无需恢复。');});break;}
     case 'reset':{if(confirm('确定清空所有数据？此操作不可撤销。')){state=defaultData();saveState(true);render();}break;}
@@ -1668,6 +1678,7 @@ async function init(){
   }
   if(migrated){snapState();await idbSet(KEY_STATE,state);}
   setConn('offline');
+  applyName();
   render();
   checkCheer();
   initSupabase();
