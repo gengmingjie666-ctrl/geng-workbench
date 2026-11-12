@@ -333,6 +333,7 @@ textarea{resize:vertical;width:100%}
   <div class="mobile-top">
     <div class="seal">耿</div>
     <div><h1>耿茗傑工作台</h1><p id="todayStrM">2026年10月10日 · 星期六</p></div>
+    <button id="syncLogBtnM" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(244,238,218,.7);border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;">日志</button>
     <div class="conn offline" id="connM"><span class="dot"></span><span class="txt">本地</span></div>
   </div>
 
@@ -509,6 +510,13 @@ function syncLog(msg){
   const el=document.getElementById('syncLogBox');
   if(el)el.innerHTML=_syncLog.map(l=>'<div>'+l+'</div>').join('');
 }
+/* 给 supabase 请求加超时，避免网络挂起导致 _syncingFromCloud 卡住 */
+function withTimeout(promise,ms){
+  return Promise.race([
+    promise,
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error('请求超时('+ms+'ms)')),ms))
+  ]);
+}
 async function syncToCloud(){
   if(!_supaClient){syncLog('syncToCloud: no supabase client');return;}
   if(_syncTimer){clearTimeout(_syncTimer);_syncTimer=null;}
@@ -523,7 +531,7 @@ async function syncToCloud(){
         syncLog('推送开始 moods=['+moodDump()+'] todos='+(state.todos||[]).length);
         // 推送前先拉云端合并，避免整份覆盖冲掉另一台设备刚新增的内容
         try{
-          const{data:cur}=await _supaClient.from('workbench').select('data').eq('id','main').maybeSingle();
+          const{data:cur}=await withTimeout(_supaClient.from('workbench').select('data').eq('id','main').maybeSingle(),15000);
           if(cur&&cur.data){
             const cloudMoods=cur.data.moods||{};
             const m=mergeState(state,mergeObj(defaultData(),cur.data));
@@ -534,7 +542,7 @@ async function syncToCloud(){
         if(!state._meta)state._meta={};
         state._meta.lw=DEVICE_ID;
         await compressStateImages();
-        const{data:upserted,error}=await _supaClient.from('workbench').upsert({id:'main',data:state,updated_at:now}).select('updated_at');
+        const{data:upserted,error}=await withTimeout(_supaClient.from('workbench').upsert({id:'main',data:state,updated_at:now}).select('updated_at'),30000);
         if(error)throw error;
         _dirty=false;
         const serverTs=upserted&&upserted[0]&&upserted[0].updated_at?new Date(upserted[0].updated_at).getTime():new Date(now).getTime();
@@ -622,7 +630,7 @@ async function syncFromCloud(force){
   if(!force&&(_dirty||_pushing||_saveTimer||_syncTimer)){syncLog('有本地改动，先推送再拉取');await syncToCloud();}
   _syncingFromCloud=true;
   try{
-    const{data,error}=await _supaClient.from('workbench').select('data,updated_at').eq('id','main').maybeSingle();
+    const{data,error}=await withTimeout(_supaClient.from('workbench').select('data,updated_at').eq('id','main').maybeSingle(),15000);
     if(error)throw error;
     if(data&&data.data){
       const cloud=data.data;
@@ -705,6 +713,12 @@ function startCloudPolling(){
     });
     slb.style.cursor='pointer';
   }
+  // 移动端日志按钮
+  const slbM=document.getElementById('syncLogBtnM');
+  if(slbM)slbM.addEventListener('click',()=>{
+    const p=document.getElementById('syncLogPanel');
+    if(p)p.style.display=(p.style.display==='none')?'block':'none';
+  });
 }
 
 /* ====== 状态管理 ====== */
