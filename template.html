@@ -348,7 +348,24 @@ textarea{resize:vertical;width:100%}
  * ================================================================ */
 
 /* ====== 常量 ====== */
-const DB_NAME='GengWorkbench';const STORE='kv';const KEY_STATE='state';const KEY_SB='supabase_config';const KEY_NAME='user_name';
+const DB_NAME='GengWorkbench';const STORE='kv';const KEY_STATE='state';const KEY_SB='supabase_config';const KEY_NAME='user_name';const KEY_THEME='user_theme';
+const THEMES={
+  bamboo:{name:'竹青',bg:'#f2ece0',card:'#fbf7ec',cardDeep:'#f7f1e2',ink:'#2c2416',inkSoft:'#6f6350',inkFaint:'#9a8f7a',primary:'#4a7c59',primaryDeep:'#2d4a36',red:'#c23a2b',blue:'#3d6b7c',ochre:'#b5651d',purple:'#7d5a8c',line:'#e4dac2',track:'#e8dfca'},
+  night:{name:'墨夜',bg:'#1a1a2e',card:'#252540',cardDeep:'#1e1e36',ink:'#e8e8f0',inkSoft:'#a0a0b8',inkFaint:'#707088',primary:'#4ade80',primaryDeep:'#22c55e',red:'#f87171',blue:'#60a5fa',ochre:'#fbbf24',purple:'#c084fc',line:'#3a3a5c',track:'#2a2a44'},
+  sky:{name:'天蓝',bg:'#eef4f8',card:'#ffffff',cardDeep:'#e6eef3',ink:'#1e293b',inkSoft:'#64748b',inkFaint:'#94a3b8',primary:'#0ea5e9',primaryDeep:'#0369a1',red:'#ef4444',blue:'#3b82f6',ochre:'#f59e0b',purple:'#8b5cf6',line:'#d4dde6',track:'#e2e8f0'},
+  warm:{name:'暖橙',bg:'#fdf6f0',card:'#ffffff',cardDeep:'#f9ede3',ink:'#3d2817',inkSoft:'#7a5c3e',inkFaint:'#a89078',primary:'#ea580c',primaryDeep:'#c2410c',red:'#dc2626',blue:'#2563eb',ochre:'#d97706',purple:'#7c3aed',line:'#ecdcc8',track:'#f3e6d6'},
+  plain:{name:'素白',bg:'#fafafa',card:'#ffffff',cardDeep:'#f4f4f5',ink:'#18181b',inkSoft:'#52525b',inkFaint:'#a1a1aa',primary:'#52525b',primaryDeep:'#27272a',red:'#ef4444',blue:'#3b82f6',ochre:'#eab308',purple:'#8b5cf6',line:'#e4e4e7',track:'#f4f4f5'}
+};
+function getTheme(){return localStorage.getItem(KEY_THEME)||'bamboo';}
+function applyTheme(name){
+  const t=THEMES[name]||THEMES.bamboo;
+  const r=document.documentElement.style;
+  r.setProperty('--bg',t.bg);r.setProperty('--card',t.card);r.setProperty('--card-deep',t.cardDeep);
+  r.setProperty('--ink',t.ink);r.setProperty('--ink-soft',t.inkSoft);r.setProperty('--ink-faint',t.inkFaint);
+  r.setProperty('--green',t.primary);r.setProperty('--green-deep',t.primaryDeep);
+  r.setProperty('--red',t.red);r.setProperty('--blue',t.blue);r.setProperty('--ochre',t.ochre);r.setProperty('--purple',t.purple);
+  r.setProperty('--line',t.line);r.setProperty('--track',t.track);
+}
 const CI_ITEMS=[['qi','早起'],['jingang','八部金刚功'],['changshou','八部长寿功'],['guannian','观念观照'],['dushu','读书1小时'],['shui','23点前睡']];
 const TODO_TAGS=['普通','英语','读书','要紧','学术','公众号','观念','小说'];
 const TAG_COLORS={'普通':'#8a8371','英语':'#3d6b7c','读书':'#4a7c59','要紧':'#c23a2b','学术':'#3d6b7c','公众号':'#b5651d','观念':'#7d5a8c','小说':'#2d4a36'};
@@ -1430,6 +1447,7 @@ function vSettings(){
   const cfg=sbConfig();
   const aiCfg=state.ai||{provider:'zhipu',key:''};
   const g='<div class="card"><h3>👤 个人信息</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px">设置你的称呼，用于页面标题、问候语和备份文件名。仅保存在本地浏览器，不会上传。</p><div class="form-grid"><div class="fld full"><label>你的名字</label><input type="text" id="user-name" value="'+esc(userName())+'" placeholder="例如：小明"></div></div><button class="btn" data-act="name-save">保存</button></div>'+
+  '<div class="card"><h3>🎨 主题配色</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px">选择你喜欢的配色方案，设置保存在本地浏览器。</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+Object.entries(THEMES).map(([k,v])=>'<label style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card-deep);border-radius:8px;cursor:pointer;border:2px solid '+(getTheme()===k?'var(--green-deep)':'transparent')+'"><input type="radio" name="theme" data-act="theme-switch" data-key="'+k+'" '+(getTheme()===k?'checked':'')+' style="width:16px;height:16px;accent-color:var(--green-deep)"><span style="display:flex;gap:4px"><span style="width:18px;height:18px;border-radius:50%;background:'+v.primary+';border:1px solid var(--line)"></span><span style="width:18px;height:18px;border-radius:50%;background:'+v.bg+';border:1px solid var(--line)"></span><span style="width:18px;height:18px;border-radius:50%;background:'+v.ink+';border:1px solid var(--line)"></span></span><span style="font-size:13px">'+v.name+'</span></label>').join('')+'</div></div>'+
   '<div class="card"><h3>🧩 模块管理</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px">勾选你需要的功能模块，未勾选的模块将从导航和「更多」中隐藏。总览和设置为必选模块。</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+Object.entries(VIEWS).map(([k,v])=>{const on=isEnabled(k);const dis=v.required?'disabled':'';return'<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--card-deep);border-radius:8px;cursor:'+(v.required?'default':'pointer')+';font-size:13px"><input type="checkbox" data-act="module-toggle" data-key="'+k+'" '+(on?'checked':'')+' '+dis+' style="width:16px;height:16px;accent-color:var(--green-deep)"><span>'+v.ico+' '+v.name+'</span>'+(v.required?'<span style="font-size:10px;color:var(--ink-faint);margin-left:auto">必选</span>':'')+'</label>';}).join('')+'</div></div>'+
   '<div class="card"><h3>☁️ Supabase 云端同步</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">填写 Supabase 项目 URL 和 anon key 开启云端同步。<br>未填写时数据仅保存在本地（IndexedDB），不会丢失。<br>需在 Supabase 控制台创建数据表：<code style="background:var(--card-deep);padding:2px 6px;border-radius:4px;font-size:11px">create table workbench (id text primary key, data jsonb, updated_at timestamptz default now());</code></p><div class="form-grid"><div class="fld full"><label>Project URL</label><input type="text" id="sb-url" value="'+esc(cfg.url||'')+'" placeholder="https://xxxx.supabase.co"></div><div class="fld full"><label>Anon Key</label><input type="text" id="sb-key" value="'+esc(cfg.key||'')+'" placeholder="eyJ..."></div></div><button class="btn" data-act="sb-save">保存并连接</button> <button class="btn btn-ghost" data-act="sb-test">测试连接</button> <button class="btn btn-red" data-act="sb-clear" style="margin-left:auto">断开</button> <button class="btn btn-ghost" data-act="sb-diagnose" style="margin-left:8px">🔍 诊断同步</button></div>'+
   '<div class="card"><h3>🤖 AI 服务配置</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">配置 AI 服务后，「每日热点」板块可自动生成爆款解读。<br>推荐智谱 GLM（注册送 2000 万 tokens 免费额度：<a href="https://bigmodel.cn/console/overview" target="_blank" style="color:var(--green)">bigmodel.cn</a>）</p><div class="form-grid"><div class="fld"><label>服务商</label><select id="ai-provider"><option value="zhipu"'+(aiCfg.provider==='zhipu'?' selected':'')+'>智谱 GLM</option><option value="deepseek"'+(aiCfg.provider==='deepseek'?' selected':'')+'>DeepSeek</option></select></div><div class="fld full"><label>API Key</label><input type="text" id="ai-key" value="'+esc(aiCfg.key||'')+'" placeholder="粘贴你的 API Key…"></div></div><button class="btn" data-act="ai-save">保存</button> <button class="btn btn-ghost" data-act="ai-test">测试连接</button> <button class="btn btn-red" data-act="ai-clear" style="margin-left:auto">清除</button></div>'+
@@ -1609,6 +1627,7 @@ document.body.addEventListener('click',async e=>{
     case 'eng-tab':ui.engTab=el.dataset.v;render();break;
     case 'eng-log':{const t=ui.engTab||'words',q=+$('#eng-qty').value||0;if(!q)break;state.english[t]+=q;state.english.logs.push({date:todayKey(),type:t,qty:q,note:$('#eng-note').value.trim()});saveState();render();break;}
     case 'name-save':{const v=$('#user-name').value.trim();if(v)localStorage.setItem(KEY_NAME,v);else localStorage.removeItem(KEY_NAME);applyName();render();break;}
+    case 'theme-switch':{localStorage.setItem(KEY_THEME,el.dataset.key);applyTheme(el.dataset.key);render();break;}
     case 'module-toggle':{const k=el.dataset.key;if(VIEWS[k]&&VIEWS[k].required)break;let m=Array.isArray(state.modules)?state.modules.slice():Object.keys(VIEWS);if(el.checked){if(!m.includes(k))m.push(k);}else{m=m.filter(x=>x!==k);}state.modules=m;saveState();if(!isEnabled(ui.view))ui.view='overview';render();break;}
     case 'sb-save':{const url=$('#sb-url').value.trim(),key=$('#sb-key').value.trim();localStorage.setItem(KEY_SB,JSON.stringify({url,key}));if(url&&key){initSupabase();}else{setConn('offline');}render();break;}
     case 'sb-test':{initSupabase();break;}
@@ -1690,6 +1709,7 @@ render=function(){
 
 /* ====== 初始化 ====== */
 async function init(){
+  applyTheme(getTheme());
   await loadState();
   await mediaGetAll(); // 加载媒体缓存到内存
   // 迁移：把本地 IndexedDB 里的图片 data 补回 state，使图片能云同步
