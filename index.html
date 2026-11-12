@@ -325,6 +325,7 @@ textarea{resize:vertical;width:100%}
       <span id="connFoot">连接状态：本地</span>
       <button data-act="export">导出备份</button>
       <button data-act="import">导入数据</button>
+      <button id="syncLogBtn">同步日志</button>
     </div>
   </aside>
 
@@ -339,6 +340,15 @@ textarea{resize:vertical;width:100%}
 
   <!-- 手机底栏 -->
   <div class="tabbar" id="tabbar"><div class="tab on" data-act="nav" data-view="overview"><span class="ico">🏠</span>总览</div><div class="tab" data-act="nav" data-view="todos"><span class="ico">📋</span>日课</div><div class="tab" data-act="nav" data-view="checkin"><span class="ico">🌿</span>打卡</div><div class="tab" data-act="nav" data-view="ideas"><span class="ico">⭐</span>速记</div><div class="tab" data-act="nav" data-view="more"><span class="ico">🧭</span>更多</div></div>
+
+  <!-- 同步日志面板 -->
+  <div id="syncLogPanel" style="display:none;position:fixed;left:0;right:0;bottom:0;max-height:45vh;overflow:auto;background:rgba(20,20,20,0.95);color:#0f0;font:12px/1.6 monospace;padding:10px;z-index:9999;border-top:2px solid #0f0;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <b>同步日志（点击"已同步"或此处可强制同步）</b>
+      <button onclick="document.getElementById('syncLogPanel').style.display='none'" style="background:#333;color:#fff;border:none;padding:2px 8px;cursor:pointer;">✕</button>
+    </div>
+    <div id="syncLogBox"></div>
+  </div>
 </div>
 
 <script>
@@ -488,38 +498,51 @@ async function initSupabase(){
     startCloudPolling();
   }catch{setConn('error');_supaClient=null;}
 }
+/* 同步日志：内存中保留最近 30 条，可在 UI 查看 */
+const _syncLog=[];
+function syncLog(msg){
+  const t=new Date().toLocaleTimeString();
+  const line='['+t+'] '+msg;
+  _syncLog.unshift(line);
+  if(_syncLog.length>30)_syncLog.pop();
+  console.log('[sync]',msg);
+  const el=document.getElementById('syncLogBox');
+  if(el)el.innerHTML=_syncLog.map(l=>'<div>'+l+'</div>').join('');
+}
 async function syncToCloud(){
-  if(!_supaClient)return;
-  if(_syncTimer)clearTimeout(_syncTimer);
-  _syncTimer=setTimeout(async()=>{
-    _syncTimer=null;
-    if(_pushing){syncToCloud();return;} // 推送进行中则重排，避免本次修改被丢弃
-    _pushing=true;setConn('syncing');
-    try{
-      // 推送前先拉云端合并，避免整份覆盖冲掉另一台设备刚新增的内容
+  if(!_supaClient){syncLog('syncToCloud: no supabase client');return;}
+  if(_syncTimer){clearTimeout(_syncTimer);_syncTimer=null;}
+  // 返回一个 Promise，真正等待推送完成（供手动同步 await）
+  return new Promise((resolve)=>{
+    _syncTimer=setTimeout(async()=>{
+      _syncTimer=null;
+      if(_pushing){syncLog('syncToCloud: push in progress, skip');resolve();return;}
+      _pushing=true;setConn('syncing');
       try{
-        const{data:cur}=await _supaClient.from('workbench').select('data').eq('id','main').maybeSingle();
-        if(cur&&cur.data){
-          const m=mergeState(state,mergeObj(defaultData(),cur.data));
-          if(m.changed){state=m.state;snapState();await idbSet(KEY_STATE,state);}
-        }
-      }catch(_){/* 拉取失败仍继续推送本地 */}
-      const now=new Date().toISOString();
-      // 标记本次推送的写入者，另一台设备据此判断是否需要拉取合并
-      if(!state._meta)state._meta={};
-      state._meta.lw=DEVICE_ID;
-      // 推送前压缩 state 里过大的图片，避免请求体超限导致连接失败
-      await compressStateImages();
-      const{data:upserted,error}=await _supaClient.from('workbench').upsert({id:'main',data:state,updated_at:now}).select('updated_at');
-      if(error)throw error;
-      _dirty=false;
-      // 优先使用服务端返回的 updated_at，避免客户端时钟不同步
-      const serverTs=upserted&&upserted[0]&&upserted[0].updated_at?new Date(upserted[0].updated_at).getTime():new Date(now).getTime();
-      _cloudSyncedAt=serverTs;
-      await idbSet('cloud_synced_at',_cloudSyncedAt);
-      setConn('online');
-    }catch(e){console.error('[syncToCloud]',e);setConn('error');}finally{_pushing=false;}
-  },1500);
+        syncLog('推送开始 (moods='+Object.keys(state.moods||{}).length+', checkins='+Object.keys(state.checkins||{}).length+', todos='+(state.todos||[]).length+')');
+        // 推送前先拉云端合并，避免整份覆盖冲掉另一台设备刚新增的内容
+        try{
+          const{data:cur}=await _supaClient.from('workbench').select('data').eq('id','main').maybeSingle();
+          if(cur&&cur.data){
+            const m=mergeState(state,mergeObj(defaultData(),cur.data));
+            if(m.changed){state=m.state;snapState();await idbSet(KEY_STATE,state);syncLog('推送前合并云端，有变化');}
+          }
+        }catch(_){syncLog('推送前拉取云端失败，继续推送本地');}
+        const now=new Date().toISOString();
+        if(!state._meta)state._meta={};
+        state._meta.lw=DEVICE_ID;
+        await compressStateImages();
+        const{data:upserted,error}=await _supaClient.from('workbench').upsert({id:'main',data:state,updated_at:now}).select('updated_at');
+        if(error)throw error;
+        _dirty=false;
+        const serverTs=upserted&&upserted[0]&&upserted[0].updated_at?new Date(upserted[0].updated_at).getTime():new Date(now).getTime();
+        _cloudSyncedAt=serverTs;
+        await idbSet('cloud_synced_at',_cloudSyncedAt);
+        setConn('online');
+        syncLog('推送成功 lw='+DEVICE_ID.slice(0,6));
+      }catch(e){console.error('[syncToCloud]',e);syncLog('推送失败: '+(e&&e.message||e));setConn('error');}finally{_pushing=false;resolve();}
+    },800);
+  });
 }
 let _syncingFromCloud=false;
 let _cloudSyncedAt=0;
@@ -585,9 +608,10 @@ function mergeState(local,cloud){
   return{state:deep(local,cloud),changed};
 }
 async function syncFromCloud(force){
-  if(!_supaClient||_syncingFromCloud)return;
-  // 本地有未推送的修改时先推送，推送完成后由下一次轮询拉取；force 时仍可拉取合并
-  if(!force&&(_dirty||_pushing||_saveTimer||_syncTimer)){syncToCloud();return;}
+  if(!_supaClient)return;
+  if(_syncingFromCloud){syncLog('拉取进行中，跳过');return;}
+  // 非强制拉取时，若有未推送修改先推送；force 时一定拉取（合并不会丢本地数据）
+  if(!force&&(_dirty||_pushing||_saveTimer||_syncTimer)){syncLog('有本地改动，先推送');syncToCloud();return;}
   _syncingFromCloud=true;
   try{
     const{data,error}=await _supaClient.from('workbench').select('data,updated_at').eq('id','main').maybeSingle();
@@ -595,74 +619,75 @@ async function syncFromCloud(force){
     if(data&&data.data){
       const cloud=data.data;
       const cloudTs=new Date(data.updated_at).getTime()||0;
-      // 判断云端写入者：如果是自己刚推的，只更新时间戳，不合并
       const cloudLw=(cloud._meta&&cloud._meta.lw)||'';
       const isSelf=cloudLw===DEVICE_ID;
-      // 非强制拉取 + 是自己写的 + 时间戳没更新 → 跳过，节省流量
+      // 非强制 + 是自己写的 + 时间戳没更新 → 跳过
       if(!force&&isSelf&&cloudTs<=_cloudSyncedAt){
+        syncLog('云端是自己写的且无更新，跳过 (lw='+cloudLw.slice(0,6)+')');
         if(cloudTs>_cloudSyncedAt){_cloudSyncedAt=cloudTs;await idbSet('cloud_synced_at',cloudTs);}
         return;
       }
-      // 是自己写的但时间戳更新了（可能另一台设备同账号？），也合并
-      // 覆盖前备份当前本地状态，万一同步冲突可找回
       const cur=await idbGet(KEY_STATE);
       if(cur)await idbSet('backup_state',cur);
-      // 深度合并而非整份覆盖：云端只补缺，本地内容不丢
       const cloudNorm=mergeObj(defaultData(),cloud);
       const m=mergeState(state,cloudNorm);
-      // 同步诊断日志：对比关键字段的变化
+      // 诊断日志
       try{
-        const dbg={lw:cloudLw,isSelf,changed:m.changed,
-          moods:(()=>{const d=Object.keys(cloudNorm.moods||{});const l=Object.keys(state.moods||{});return{cloudDates:d,localDates:l};})(),
-          checkins:(()=>{const d=Object.keys(cloudNorm.checkins||{});const l=Object.keys(state.checkins||{});return{cloudDates:d,localDates:l};})(),
-          todos:(()=>{const lm=new Map((state.todos||[]).map(t=>[t.id,t]));return(cloudNorm.todos||[]).map(t=>{const o=lm.get(t.id);return{id:t.id,cloudDone:t.done,cloudUp:t.up,localDone:o?o.done:null,localUp:o?o.up:null,willUseCloud:o?(t.up||0)>(o.up||0):'new'};});})()
+        const dbg={force,lw:cloudLw.slice(0,8),isSelf,changed:m.changed,
+          cloudMoodDates:Object.keys(cloudNorm.moods||{}),
+          localMoodDates:Object.keys(state.moods||{}),
+          cloudCheckinDates:Object.keys(cloudNorm.checkins||{}),
+          localCheckinDates:Object.keys(state.checkins||{}),
+          todos:(cloudNorm.todos||[]).map(t=>{const o=(state.todos||[]).find(x=>x.id===t.id);return{id:t.id,cloudDone:t.done,cloudUp:t.up,localDone:o?o.done:'-',localUp:o?o.up:'-',useCloud:o?(t.up||0)>(o.up||0):'NEW'};})
         };
         console.log('[syncFromCloud] merge',JSON.stringify(dbg));
+        syncLog('拉取合并 lw='+cloudLw.slice(0,6)+' changed='+m.changed+' mood云:'+Object.keys(cloudNorm.moods||{}).length+'本地:'+Object.keys(state.moods||{}).length);
       }catch(e){}
       state=m.state;
       snapState();
       await idbSet(KEY_STATE,state);
       _cloudSyncedAt=cloudTs;
       await idbSet('cloud_synced_at',cloudTs);
-      // 合并有变化时推回云端，让另一台设备也能拿到合并结果（但不再标记自己为写入者会覆盖，保留 cloud 的 lw）
       if(m.changed&&!isSelf){
-        // 推回时用自己的 lw，这样另一台设备能识别并拉取
         if(!state._meta)state._meta={};
         state._meta.lw=DEVICE_ID;
+        syncLog('合并有变化且非自己写入，推回云端');
         syncToCloud();
       }
       render();
+    }else{
+      syncLog('云端无数据');
     }
-  }catch(e){console.error('[syncFromCloud]',e);}finally{_syncingFromCloud=false;}
+  }catch(e){console.error('[syncFromCloud]',e);syncLog('拉取失败: '+(e&&e.message||e));}finally{_syncingFromCloud=false;}
 }
 async function initCloudSyncedAt(){
   const ts=await idbGet('cloud_synced_at');
   _cloudSyncedAt=ts||0;
 }
 function startCloudPolling(){
-  const syncNow=(force)=>{
+  // force=true 时：先推送本地改动，再拉取云端（合并不丢本地数据）
+  // force=false 时：有本地改动则推送，否则拉取
+  const syncNow=async(force)=>{
     if(!_supaClient||_connStatus!=='online')return;
-    if(_dirty||_saveTimer||_syncTimer)syncToCloud();else syncFromCloud(force);
+    const hasPending=_dirty||_saveTimer||_syncTimer||_pushing;
+    if(force){
+      syncLog('【强制同步】先推后拉');
+      if(hasPending){await syncToCloud();}
+      await syncFromCloud(true);
+    }else{
+      if(hasPending)syncToCloud();else syncFromCloud(false);
+    }
   };
-  // Poll cloud every 30s when connected (iOS may not fire this in background, but works in foreground)
-  setInterval(()=>syncNow(false),30000);
-  // 用户切回页面时强制拉取，确保拿到另一台设备的最新修改（不依赖时间戳）
+  // 轮询：每 20s 拉取一次（有本地改动则推）
+  setInterval(()=>syncNow(false),20000);
+  // 切回页面 / 聚焦：强制先推后拉
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow(true);});
-  // iOS PWA: pageshow fires when returning to cached page
   window.addEventListener('pageshow',()=>syncNow(true));
-  // Also pull on window focus
   window.addEventListener('focus',()=>syncNow(true));
-  // 点击连接状态指示器：手动强制同步（先推后拉）
+  // 点击连接状态指示器：手动强制同步
   document.querySelectorAll('.conn').forEach(el=>{
-    el.style.cursor='pointer';el.title='点击立即同步';
-    el.addEventListener('click',async()=>{
-      if(!_supaClient){return;}
-      setConn('syncing');
-      try{
-        if(_dirty||_saveTimer||_syncTimer){await syncToCloud();await new Promise(r=>setTimeout(r,300));}
-        await syncFromCloud(true);
-      }catch(e){console.error('[manual sync]',e);}
-    });
+    el.style.cursor='pointer';el.title='点击立即同步（先推后拉）';
+    el.addEventListener('click',()=>syncNow(true));
   });
 }
 
