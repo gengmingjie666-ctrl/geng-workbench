@@ -600,6 +600,12 @@ function mergeState(local,cloud){
         if(a[k]===undefined){out[k]=b[k];changed=true;}
         else if(isObj(a[k])&&isObj(b[k]))out[k]=deep(a[k],b[k]);
         else if(Array.isArray(a[k])&&Array.isArray(b[k]))out[k]=deep(a[k],b[k]);
+        else{
+          // 类型不匹配（如 moods 旧格式字符串 vs 新格式 {v,up}）：取有 up 时间戳且更新的那个
+          const aUp=isObj(a[k])?upOf(a[k]):0;
+          const bUp=isObj(b[k])?upOf(b[k]):0;
+          if(bUp>aUp){out[k]=b[k];changed=true;}
+        }
       }
       return out;
     }
@@ -689,6 +695,15 @@ function startCloudPolling(){
     el.style.cursor='pointer';el.title='点击立即同步（先推后拉）';
     el.addEventListener('click',()=>syncNow(true));
   });
+  // 同步日志按钮：显示/隐藏日志面板
+  const slb=document.getElementById('syncLogBtn');
+  if(slb){
+    slb.addEventListener('click',()=>{
+      const p=document.getElementById('syncLogPanel');
+      if(p)p.style.display=(p.style.display==='none')?'block':'none';
+    });
+    slb.style.cursor='pointer';
+  }
 }
 
 /* ====== 状态管理 ====== */
