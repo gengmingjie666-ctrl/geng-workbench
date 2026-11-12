@@ -2,7 +2,14 @@
 
 一个零依赖、零构建的单文件 HTML 个人精进工作台。打开即用，数据本地存储，可选 Supabase 云端多端同步。
 
-> 在线演示：[gengmingjie666-ctrl.github.io/geng-workbench](https://gengmingjie666-ctrl.github.io/geng-workbench/)
+## 📦 两个版本
+
+| 文件 | 说明 | 在线访问 |
+|------|------|----------|
+| `index.html` | 作者个人版（含个人定制） | [主页](https://gengmingjie666-ctrl.github.io/geng-workbench/) |
+| `template.html` | 通用模板版（无个人信息，支持模块开关） | [模板演示](https://gengmingjie666-ctrl.github.io/geng-workbench/template.html) |
+
+> 💡 **想自己用？** 下载 [`template.html`](./template.html)，双击打开即可。在设置里可配置名字、启用/禁用模块、配置云端同步。
 
 ## ✨ 功能特性
 
@@ -18,6 +25,7 @@
 | ✒️ 小说创作 | 素材、人物、大纲、草稿、灵感，分阶段管理 |
 | 📝 读书札记 | 读书笔记，按分类归档 |
 | ⭐ 灵感速记 | 快速捕捉灵感 |
+| 📸 纪念瞬间 | 图片/视频/文字记录 |
 | 📕 英语学习 | 英语学习记录 |
 | 💪 运动锻炼 | 运动记录 |
 | 💰 财经资讯 | 财经信息聚合 |
@@ -29,7 +37,7 @@
 
 ### 方式一：直接使用
 
-1. 下载 [`index.html`](./index.html)
+1. 下载 [`template.html`](./template.html)
 2. 双击用浏览器打开即可使用
 3. 所有数据保存在浏览器本地（IndexedDB）
 
@@ -37,7 +45,7 @@
 
 1. Fork 本仓库
 2. 在仓库设置中开启 GitHub Pages（Source: `main` 分支，根目录）
-3. 访问 `https://<你的用户名>.github.io/<仓库名>/`
+3. 访问 `https://<你的用户名>.github.io/<仓库名>/template.html`
 
 ## ⚙️ 自定义配置
 
@@ -47,7 +55,11 @@
 
 设置后，页面标题、侧边栏、问候语、备份文件名都会自动使用你的称呼。
 
-### 2. 配置云端同步（可选，多端同步必需）
+### 2. 模块管理
+
+打开工作台 → ⚙️ 设置 → 「🧩 模块管理」，勾选你需要的功能模块。未勾选的模块将从导航和「更多」中隐藏。总览和设置为必选模块。
+
+### 3. 配置云端同步（可选，多端同步必需）
 
 工作台支持 Supabase 实现手机/电脑多端同步：
 
@@ -72,7 +84,7 @@ create policy "workbench anon all"
 3. 打开工作台 → 设置 → 填入 Supabase `Project URL` 和 `anon key`
 4. 所有设备填入相同配置即可自动同步
 
-### 3. 配置 AI 助手（可选）
+### 4. 配置 AI 助手（可选）
 
 工作台内置 AI 助手，支持智谱 AI 和 DeepSeek：
 
