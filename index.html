@@ -541,7 +541,7 @@ function mergeState(local,cloud){
           }else out.push(it);
         }else out.push(it);
       }
-      for(const it of b){const k=keyOf(it);if(!seen.has(k)){out.push(it);seen.add(k);changed=true;}}
+      for(const it of b){const k=keyOf(it);if(!seen.has(k)&&!it._deleted){out.push(it);seen.add(k);changed=true;}}
       return out;
     }
     if(isObj(a)&&isObj(b)){
@@ -752,6 +752,7 @@ async function loadState(){
     }
   }
   if(migrated){snapState();await idbSet(KEY_STATE,state);}
+  purgeDeleted();
   snapState();
 }
 let _saveTimer=null;
@@ -776,6 +777,23 @@ function todayKey(d){d=d||new Date();return d.getFullYear()+'-'+pad(d.getMonth()
 function todayCN(){const d=new Date();return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 · 星期'+'日一二三四五六'[d.getDay()];}
 function dateCN(dk){const[yy,mm,dd]=dk.split('-').map(Number);const wd='日一二三四五六'[new Date(yy,mm-1,dd).getDay()];return yy+'年'+mm+'月'+dd+'日 · 星期'+wd;}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+// 软删除：标记 _deleted 和 up，让删除也能云同步
+function softDelete(arr,id){const it=arr.find(x=>x.id===id);if(it){it._deleted=true;it.up=Date.now();}return arr;}
+// 过滤掉已删除条目
+function active(arr){return arr.filter(x=>!x._deleted);}
+// 清理超过7天的已删除条目，避免 state 无限膨胀
+function purgeDeleted(){
+  const cutoff=Date.now()-7*24*3600*1000;
+  const clean=arr=>arr.filter(x=>!(x._deleted&&x.up&&x.up<cutoff));
+  state.todos=clean(state.todos);
+  state.moments=clean(state.moments);
+  state.reading=clean(state.reading);
+  state.ideas=clean(state.ideas);
+  state.concepts=clean(state.concepts);
+  state.novel.notes=clean(state.novel.notes);
+  if(state.hottrends&&state.hottrends.manual)state.hottrends.manual=clean(state.hottrends.manual);
+  Object.values(state.accounts).forEach(a=>{a.articles=clean(a.articles);a.topics=clean(a.topics);});
+}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function nl2br(s){return esc(s).replace(/\n/g,'<br>');}
 
@@ -901,7 +919,7 @@ const TABS=[['overview','🏠','总览'],['todos','📋','日课'],['checkin','�
 function renderNav(){
   $('#nav').innerHTML=Object.entries(VIEWS).map(([k,v])=>{
     let cnt='';
-    if(k==='todos'){const n=state.todos.filter(t=>!t.done).length;if(n)cnt='<span class="cnt">'+n+'</span>';}
+    if(k==='todos'){const n=active(state.todos).filter(t=>!t.done).length;if(n)cnt='<span class="cnt">'+n+'</span>';}
     return'<div class="nav-item'+(ui.view===k?' on':'')+'" data-act="nav" data-view="'+k+'"><span class="ico">'+v.ico+'</span><span class="lbl">'+v.name+'</span>'+cnt+'</div>';
   }).join('');
 }
@@ -913,8 +931,8 @@ function pageHead(title,sub){return'<div class="page-head"><h2>'+title+'</h2><sp
 /* ====== 鼓励语 ====== */
 function checkCheer(){
   const t=todayKey();
-  const todosDone=state.todos.filter(x=>x.date===t).every(x=>x.done);
-  const hasTodos=state.todos.some(x=>x.date===t);
+  const todosDone=active(state.todos).filter(x=>x.date===t).every(x=>x.done);
+  const hasTodos=active(state.todos).some(x=>x.date===t);
   const ciDone=ciAllDone(t);
   if((todosDone&&hasTodos)||ciDone){
     showCheer();
@@ -946,8 +964,8 @@ function cheerOfDay(){
 }
 function vOverview(){
   const t=todayKey();
-  const undone=state.todos.filter(x=>!x.done);
-  const doneToday=state.todos.filter(x=>x.done&&x.date===t);
+  const undone=active(state.todos).filter(x=>!x.done);
+  const doneToday=active(state.todos).filter(x=>x.done&&x.date===t);
   const avgA=Math.round(state.papers.reduce((s,p)=>s+paperPct(p),0)/state.papers.length);
   const pa=state.accounts.personal,pw=state.accounts.work;
   const nP=accPublished(pa),nW=accPublished(pw);
@@ -965,9 +983,9 @@ function vOverview(){
     {v:'academic',lab:'📖 学术进度',num:avgA+'<em>%</em>'},
     {v:'accp',lab:'🔥 个人公众号',num:nP+'<em>/'+pa.target+'</em>'},
     {v:'accw',lab:'💼 工作公众号',num:nW+'<em>/'+pw.target+'</em>'},
-    {v:'concept',lab:'🎯 观念工夫',num:state.concepts.length+'<em>条</em>'},
+    {v:'concept',lab:'🎯 观念工夫',num:active(state.concepts).length+'<em>条</em>'},
     {v:'novel',lab:'✒️ 小说字数',num:state.novel.words>=10000?(state.novel.words/10000).toFixed(1)+'<em>万</em>':state.novel.words},
-    {v:'reading',lab:'📝 读书札记',num:state.reading.length+'<em>篇</em>'},
+    {v:'reading',lab:'📝 读书札记',num:active(state.reading).length+'<em>篇</em>'},
     {v:'english',lab:'📕 英语学习',num:state.english.words+'<em>词</em>'}
   ];
   g+='<div class="grid9">'+cards.map(c=>'<div class="card" style="cursor:pointer;margin:0;padding:12px 14px" data-act="nav" data-view="'+c.v+'"><div style="font-size:12px;color:var(--ink-soft)">'+c.lab+'</div><div style="font-family:Georgia,serif;font-size:24px;font-weight:700;color:'+(c.hot?'var(--red)':'var(--green)')+';margin-top:2px">'+c.num+'</div></div>').join('')+'</div>';
@@ -988,7 +1006,7 @@ function calInner(showMoodPicker){
     const dk=y+'-'+pad(m)+'-'+pad(d);
     const isToday=dk===today;
     const mood=moodVal(dk);const moodF=MOODS.find(([k])=>k===mood);const moodEmoji=moodF?moodF[1]:'';
-    const dayTodos=state.todos.filter(x=>x.date===dk);
+    const dayTodos=active(state.todos).filter(x=>x.date===dk);
     const doneCnt=dayTodos.filter(x=>x.done).length;
     const ci=ciCount(dk);
     const total=dayTodos.length+(ci>0?6:0);
@@ -1007,7 +1025,7 @@ function calWidget(showMoodPicker){
 function dayDetail(dk){
   const t=todayKey();
   _pendingMediaDay=[];
-  const dayTodos=state.todos.filter(x=>x.date===dk);
+  const dayTodos=active(state.todos).filter(x=>x.date===dk);
   const doneCnt=dayTodos.filter(x=>x.done).length;
   const ci=state.checkins[dk]||{};const ciN=ciCount(dk);
   const mood=moodVal(dk);const moodF=MOODS.find(([k])=>k===mood);const moodEmoji=moodF?moodF[1]:'';
@@ -1033,13 +1051,13 @@ function vTodosBody(){
   let g='<div class="card"><h3>➕ 添加日课</h3><div class="add-row" style="margin-bottom:0"><input type="text" id="td-text" placeholder="要做什么…（可指定日期）" data-enter="todo-add"><select id="td-tag" style="width:auto">'+TODO_TAGS.map(x=>'<option>'+x+'</option>').join('')+'</select><input type="date" id="td-date" value="'+todayKey()+'" style="width:auto"><label class="media-add-btn" title="添加图片/视频">📷<input type="file" id="td-media" accept="image/*,video/*" multiple style="display:none"></label><button class="btn" data-act="todo-add">添加</button></div><div id="td-media-preview" class="media-preview"></div></div>';
   const f=ui.todoTag;
   const match=x=>f==='all'||x.tag===f;
-  const undone=state.todos.filter(x=>!x.done&&match(x)&&x.date>=todayKey()).sort((a,b)=>a.date<b.date?-1:1);
-  const doneToday=state.todos.filter(x=>x.done&&x.date===todayKey()&&match(x));
+  const undone=active(state.todos).filter(x=>!x.done&&match(x)&&x.date>=todayKey()).sort((a,b)=>a.date<b.date?-1:1);
+  const doneToday=active(state.todos).filter(x=>x.done&&x.date===todayKey()&&match(x));
   g+='<div class="card"><h3>🌱 未完成 <span class="tag-mini">'+undone.length+' 项</span></h3><div class="chips">'+['all'].concat(TODO_TAGS).map(x=>'<span class="chip'+(f===x?' on':'')+'" data-act="todo-filter" data-v="'+x+'">'+(x==='all'?'全部':x)+'</span>').join('')+'</div>'+(undone.length?undone.map(todoItem).join(''):'<div class="empty">无待办，一念不生</div>')+'</div>';
   g+='<div class="card"><h3>🍂 今日已完成 <span class="tag-mini">'+doneToday.length+' 项</span></h3>'+(doneToday.length?doneToday.map(todoItem).join(''):'<div class="empty">还没有完成的日课</div>')+'</div>';
   // 历史折叠
   const doneByDate={};
-  state.todos.filter(x=>x.done&&match(x)).forEach(x=>{(doneByDate[x.date]||(doneByDate[x.date]=[])).push(x);});
+  active(state.todos).filter(x=>x.done&&match(x)).forEach(x=>{(doneByDate[x.date]||(doneByDate[x.date]=[])).push(x);});
   const dates=Object.keys(doneByDate).sort().reverse().filter(d=>d!==todayKey());
   if(dates.length){
     g+='<div class="card"><h3>📜 历史记录</h3>';
@@ -1082,23 +1100,23 @@ function vAcademic(){
 function vAccount(key,ico,title,desc){
   const a=state.accounts[key];
   const n=accPublished(a),pct=Math.min(100,Math.round(n/a.target*100));
-  let g='<div class="stat-row"><div class="mini-stat"><div class="v">'+n+'<span>/'+a.target+'</span></div><div class="k">已发文</div></div><div class="mini-stat"><div class="v">'+a.topics.filter(x=>x.status==='未发布').length+'</div><div class="k">未发布</div></div><div class="mini-stat"><div class="v">'+a.topics.filter(x=>x.status==='未成文').length+'</div><div class="k">未成文</div></div></div>';
+  let g='<div class="stat-row"><div class="mini-stat"><div class="v">'+n+'<span>/'+a.target+'</span></div><div class="k">已发文</div></div><div class="mini-stat"><div class="v">'+active(a.topics).filter(x=>x.status==='未发布').length+'</div><div class="k">未发布</div></div><div class="mini-stat"><div class="v">'+active(a.topics).filter(x=>x.status==='未成文').length+'</div><div class="k">未成文</div></div></div>';
   g+='<div class="card"><h3>📈 年度进度 <span class="tag-mini">'+pct+'%</span></h3><div class="bar-lg"><i style="width:'+pct+'%"></i></div><div class="add-row" style="margin:14px 0 0"><span style="font-size:12.5px;color:var(--ink-soft)">年度目标</span><input type="number" style="width:90px" value="'+a.target+'" data-change="acc-target" data-k="'+key+'"><button class="btn btn-red" data-act="acc-rec" data-k="'+key+'">＋1 · 今日已发文</button></div></div>';
   // 四个模块标签
   const st=ui.accStatus;
-  const counts={'已发布':a.topics.filter(x=>x.status==='已发布').length,'未发布':a.topics.filter(x=>x.status==='未发布').length,'未成文':a.topics.filter(x=>x.status==='未成文').length,'全部':a.topics.length};
+  const counts={'已发布':active(a.topics).filter(x=>x.status==='已发布').length,'未发布':active(a.topics).filter(x=>x.status==='未发布').length,'未成文':active(a.topics).filter(x=>x.status==='未成文').length,'全部':active(a.topics).length};
   g+='<div class="chips">'+['已发布','未发布','未成文','全部'].map(s=>'<span class="chip'+(st===s?' on':'')+'" data-act="acc-status" data-v="'+s+'">'+s+'（'+counts[s]+'）</span>').join('')+'</div>';
   // 添加选题
   g+='<div class="card"><h3>💡 添加选题</h3><div class="form-grid"><div class="fld full"><label>选题内容</label>'+richEditorHTML('acc-topic-'+key,'','记一个选题…')+'</div><div class="fld"><label>状态</label><select id="acc-topic-status-'+key+'">'+ACC_STATUS.map(s=>'<option>'+s+'</option>').join('')+'</select></div><div class="fld"><button class="btn" data-act="acc-topic" data-k="'+key+'">添加选题</button></div></div></div>';
   // 选题列表
-  const list=st==='全部'?a.topics:a.topics.filter(x=>x.status===st);
+  const list=st==='全部'?active(a.topics):active(a.topics).filter(x=>x.status===st);
   g+='<div class="card"><h3>📋 选题列表 <span class="tag-mini">'+list.length+' 条</span></h3>'+(list.length?list.slice().reverse().map(tp=>'<div class="item"><div class="grow"><div class="txt">'+toRichHTML(tp.text)+'</div><div class="meta">'+badge(tp.status,ACC_STATUS_COLORS[tp.status])+'<span>'+tp.date+'</span></div></div><button class="icon-btn" data-act="acc-topic-edit" data-k="'+key+'" data-id="'+tp.id+'">✎</button><button class="icon-btn" data-act="acc-topic-del" data-k="'+key+'" data-id="'+tp.id+'">✕</button></div>').join(''):'<div class="empty">还没有选题</div>')+'</div>';
   // 最近发文
   if(a.records.length){
     g+='<div class="card"><h3>📝 发文记录</h3>'+yearRecords(a.records).slice(-10).reverse().map(d=>'<div class="item"><div class="grow txt">📝 '+d+'</div><button class="icon-btn" data-act="acc-rec-del" data-k="'+key+'" data-d="'+d+'">✕</button></div>').join('')+'</div>';
   }
   // 文章数据卡片
-  const arts=a.articles||[];
+  const arts=active(a.articles);
   g+='<div class="card"><h3>📊 文章数据 <span class="tag-mini">'+arts.length+' 篇</span></h3>';
   g+='<div class="add-row" style="margin-bottom:12px"><button class="btn" data-act="acc-art-add" data-k="'+key+'">➕ 添加文章数据</button>'+(key==='personal'?'<button class="btn btn-ghost" data-act="acc-art-import" data-k="'+key+'">📋 粘贴导入</button>':'')+'</div>';
   if(arts.length){
@@ -1129,12 +1147,12 @@ function vAccount(key,ico,title,desc){
 
 /* ====== 观念工夫 ====== */
 function vConcept(){
-  const nSelf=state.concepts.filter(c=>c.category==='自我观念').length;
-  const nOther=state.concepts.filter(c=>c.category==='他人观念').length;
-  let g='<div class="stat-row"><div class="mini-stat"><div class="v">'+state.concepts.length+'</div><div class="k">总记录</div></div><div class="mini-stat"><div class="v">'+nSelf+'</div><div class="k">自我观念</div></div><div class="mini-stat"><div class="v">'+nOther+'</div><div class="k">他人观念</div></div></div>';
+  const nSelf=active(state.concepts).filter(c=>c.category==='自我观念').length;
+  const nOther=active(state.concepts).filter(c=>c.category==='他人观念').length;
+  let g='<div class="stat-row"><div class="mini-stat"><div class="v">'+active(state.concepts).length+'</div><div class="k">总记录</div></div><div class="mini-stat"><div class="v">'+nSelf+'</div><div class="k">自我观念</div></div><div class="mini-stat"><div class="v">'+nOther+'</div><div class="k">他人观念</div></div></div>';
   g+='<div class="card"><h3>✍️ 记一笔观念工夫</h3><div class="form-grid"><div class="fld"><label>日期</label><input type="date" id="cp-date" value="'+todayKey()+'"></div><div class="fld"><label>分类</label><select id="cp-cat">'+CONCEPT_CATS.map(x=>'<option>'+x+'</option>').join('')+'</select></div><div class="fld full"><label>种子类型</label><select id="cp-seed">'+SEEDS.map(x=>'<option>'+x+'</option>').join('')+'</select></div><div class="fld full"><label>触发情境</label>'+richEditorHTML('cp-sit','','什么人、什么事、什么念头…')+'</div><div class="fld full"><label>觉察</label>'+richEditorHTML('cp-aware','','觉察到了什么…')+'</div><div class="fld full"><label>用的功夫</label>'+richEditorHTML('cp-gong','','用了什么功夫…')+'</div><div class="fld full"><label>结果</label>'+richEditorHTML('cp-res','','结果如何…')+'</div></div><button class="btn" data-act="concept-add">保存记录</button></div>';
   g+='<div class="chips">'+['all'].concat(CONCEPT_CATS).map(x=>'<span class="chip'+(ui.conceptCat===x?' on':'')+'" data-act="concept-filter" data-v="'+x+'">'+(x==='all'?'全部':x)+'</span>').join('')+'</div>';
-  const list=state.concepts.filter(c=>ui.conceptCat==='all'||c.category===ui.conceptCat);
+  const list=active(state.concepts).filter(c=>ui.conceptCat==='all'||c.category===ui.conceptCat);
   const cc={'自我观念':'#4a7c59','案例分析':'#3d6b7c','笔记类型':'#b5651d','他人观念':'#c23a2b'};
   g+=list.length?list.slice().reverse().map(c=>'<div class="rec-card"><div class="r-head">'+badge(c.category,cc[c.category]||'#8a8371')+(c.seed&&c.seed!=='不适用'?badge(c.seed,'#b5651d'):'')+'<span class="date">'+c.date+'</span><button class="icon-btn" data-act="concept-edit" data-id="'+c.id+'">✎</button><button class="icon-btn" data-act="concept-del" data-id="'+c.id+'">✕</button></div><div class="rec-body">'+[['sit','情境'],['aware','觉察'],['gong','功夫'],['res','结果']].map(([k,l])=>c[k]?'<p><b class="lb">'+l+'</b>'+toRichHTML(c[k])+'</p>':'').join('')+'</div></div>').join(''):'<div class="empty">才动即觉，觉之即无</div>';
   return pageHead('🎯 观念工夫','观照 · 转念 · 种子')+g;
@@ -1145,7 +1163,7 @@ function vNovel(){
   const nv=state.novel;
   let g='<div class="bigtabs">'+NOVEL_TYPES.map(x=>'<span class="bt'+(ui.novelTab===x?' on':'')+'" data-act="novel-tab" data-v="'+x+'">'+x+'</span>').join('')+'</div>';
   g+='<div class="card"><h3>✒️ 记一笔（'+ui.novelTab+'）</h3><div class="fld" style="margin-bottom:8px"><label>标题</label><input type="text" id="nv-title" placeholder="给这条笔记起个名…"></div><div class="fld" style="margin-bottom:10px"><label>内容</label>'+richEditorHTML('nv-body','','写下来…')+'</div><button class="btn" data-act="novel-add">保存</button></div>';
-  const list=nv.notes.filter(x=>x.type===ui.novelTab);
+  const list=active(nv.notes).filter(x=>x.type===ui.novelTab);
   g+=list.length?list.slice().reverse().map(x=>'<div class="rec-card"><div class="r-head">'+badge(x.type,'#7d5a8c')+'<b>'+esc(x.title)+'</b><span class="date">'+x.date+'</span><button class="icon-btn" data-act="novel-edit" data-id="'+x.id+'">✎</button><button class="icon-btn" data-act="novel-del" data-id="'+x.id+'">✕</button></div><div class="rec-body">'+toRichHTML(x.content)+'</div></div>').join(''):'<div class="empty">这一类还没有笔记</div>';
   g+='<div class="card" style="margin-top:16px"><h3>📌 创作状态</h3><div class="add-row" style="margin-bottom:0"><span style="font-size:12.5px;color:var(--ink-soft)">总字数</span><input type="number" style="width:120px" value="'+nv.words+'" data-change="novel-words"><span style="font-size:12.5px;color:var(--ink-soft)">阶段</span><select data-change="novel-stage">'+NOVEL_STAGES.map(s=>'<option'+(nv.stage===s?' selected':'')+'>'+s+'</option>').join('')+'</select></div></div>';
   return pageHead('✒️ 小说创作','字字得来不寻常')+g;
@@ -1156,7 +1174,7 @@ function vReading(){
   const tabs=['查看全部'].concat(READ_CATS);
   let g='<div class="bigtabs">'+tabs.map(x=>{const v=x==='查看全部'?'all':x;return '<span class="bt'+(ui.readCat===v?' on':'')+'" data-act="reading-filter" data-v="'+v+'">'+x+'</span>';}).join('')+'</div>';
   g+='<div class="card"><h3>✍️ 记一条札记</h3><div class="form-grid"><div class="fld"><label>分类</label><select id="rd-cat">'+READ_CATS.map(x=>'<option'+(ui.readCat===x?' selected':'')+'>'+x+'</option>').join('')+'</select></div><div class="fld"><label>标题 / 出处</label><input type="text" id="rd-title" placeholder="如：《定性书》程颢"></div><div class="fld full"><label>内容</label>'+richEditorHTML('rd-body','','摘录或心得…')+'</div></div><button class="btn" data-act="reading-add">保存</button></div>';
-  const list=state.reading.filter(x=>ui.readCat==='all'||x.category===ui.readCat);
+  const list=active(state.reading).filter(x=>ui.readCat==='all'||x.category===ui.readCat);
   g+=list.length?list.slice().reverse().map(x=>'<div class="rec-card"><div class="r-head">'+badge(x.category,READ_COLORS[x.category]||'#8a8371')+'<b>'+esc(x.title)+'</b><span class="date">'+x.date+'</span><button class="icon-btn" data-act="reading-edit" data-id="'+x.id+'">✎</button><button class="icon-btn" data-act="reading-del" data-id="'+x.id+'">✕</button></div><div class="rec-body">'+toRichHTML(x.content)+'</div></div>').join(''):'<div class="empty">读书不记，如雨入大海</div>';
   return pageHead('📝 读书札记','含英咀华，随手札录')+g;
 }
@@ -1165,7 +1183,7 @@ function vReading(){
 function vIdeas(){
   let g='<div class="card"><h3>⚡ 速记一条</h3><div class="chips" style="margin-bottom:10px">'+IDEA_TYPES.map(x=>'<span class="chip'+(ui.ideaQuick===x?' on':'')+'" data-act="idea-quick" data-v="'+x+'">'+x+'</span>').join('')+'</div><div class="fld" style="margin-bottom:10px">'+richEditorHTML('idea-text','','想到什么，马上记下来…')+'</div><button class="btn btn-red" data-act="idea-add">记下</button></div>';
   g+='<div class="chips">'+['all'].concat(IDEA_TYPES).map(x=>'<span class="chip'+(ui.ideaType===x?' on':'')+'" data-act="idea-filter" data-v="'+x+'">'+(x==='all'?'全部':x)+'</span>').join('')+'</div>';
-  const list=state.ideas.filter(x=>ui.ideaType==='all'||x.type===ui.ideaType);
+  const list=active(state.ideas).filter(x=>ui.ideaType==='all'||x.type===ui.ideaType);
   g+=list.length?list.map(x=>'<div class="item"><div class="grow"><div class="txt">'+toRichHTML(x.text)+'</div><div class="meta">'+badge(x.type,IDEA_COLORS[x.type]||'#8a8371')+'<span>'+x.date+'</span></div></div><button class="icon-btn" data-act="idea-edit" data-id="'+x.id+'">✎</button><button class="icon-btn" data-act="idea-del" data-id="'+x.id+'">✕</button></div>').join(''):'<div class="empty">心湖无波？那就先记一条</div>';
   return pageHead('⭐ 灵感速记','乍念乍现，随手拈来')+g;
 }
@@ -1181,7 +1199,7 @@ function vMoments(){
   g+='<div style="margin-bottom:10px"><label class="media-add-btn" title="添加图片/视频">📷 添加图片/视频<input type="file" id="mom-media" accept="image/*,video/*" multiple style="display:none"></label></div>';
   g+='<div id="mom-media-preview" class="media-preview"></div>';
   g+='<button class="btn btn-red" data-act="moment-add">保存这个瞬间</button></div>';
-  const list=state.moments.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const list=active(state.moments).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   g+=list.length?list.map(m=>{
     const media=(m.media||[]).map((x,i)=>{
       const d=resolveMedia(x);
@@ -1330,11 +1348,11 @@ function vHotTrends(){
     g+='<div class="card"><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><h3 style="margin:0">📡 今日热榜</h3><button class="btn btn-ghost" data-act="hot-refresh" style="margin-left:auto">刷新</button></div><div id="hot-auto-area" style="min-height:200px"><div style="text-align:center;color:var(--ink-faint);padding:40px 0;font-size:13px">点击「刷新」获取今日热榜…</div></div></div>';
   }else if(ui.hotTab==='manual'){
     g+='<div class="card"><h3>✍️ 记一条热梗/热评</h3><div class="form-grid"><div class="fld"><label>来源平台</label><select id="hm-source">'+HOT_MANUAL_SOURCES.map(s=>'<option'+(ui.hotManualSource===s?' selected':'')+'>'+s+'</option>').join('')+'</select></div><div class="fld"><label>热度(可选)</label><input type="text" id="hm-heat" placeholder="如 12.5万讨论"></div><div class="fld full"><label>内容</label><textarea rows="3" id="hm-content" placeholder="热梗内容、热评原文…"></textarea></div><div class="fld full"><label>链接(可选)</label><input type="text" id="hm-link" placeholder="https://…"></div></div><button class="btn" data-act="hot-manual-add">保存记录</button></div>';
-    const manual=h.manual||[];
+    const manual=active(h.manual||[]);
     g+=manual.length?'<div class="card"><h3>📋 热梗记录 <span class="tag-mini">'+manual.length+' 条</span></h3>'+manual.slice().reverse().map(m=>'<div class="rec-card"><div class="r-head">'+badge(m.source,'#b5651d')+(m.heat?'<span style="font-size:11px;color:var(--ink-faint)">🔥 '+esc(m.heat)+'</span>':'')+'<span class="date">'+m.date+'</span><button class="icon-btn" data-act="hot-manual-edit" data-id="'+m.id+'">✎</button><button class="icon-btn" data-act="hot-manual-del" data-id="'+m.id+'">✕</button></div><div class="rec-body">'+nl2br(m.content)+(m.link?'<p><a href="'+esc(m.link)+'" target="_blank" style="color:var(--green)">查看原文 →</a></p>':'')+'</div>'+(m.interpretation?'<div style="background:var(--card-deep);border:1px dashed var(--line);border-radius:8px;padding:10px 12px;margin-top:8px;font-size:12.5px;line-height:1.8"><b style="color:var(--red)">AI解读：</b><br>'+nl2br(m.interpretation)+'</div>':'')+'<div style="display:flex;gap:6px;margin-top:8px"><button class="btn btn-ghost" style="font-size:12px;padding:4px 12px" data-act="hot-interpret" data-id="'+m.id+'" data-type="manual">🤖 AI解读</button><button class="btn btn-ghost" style="font-size:12px;padding:4px 12px" data-act="hot-to-topic" data-id="'+m.id+'" data-type="manual">📝 转入选题</button></div></div>').join(''):'<div class="empty">还没有热梗记录</div></div>';
   }else{
     // 热梗库 - 展示所有有解读的条目
-    const all=[...(h.manual||[]).filter(m=>m.interpretation)];
+    const all=[...active(h.manual||[]).filter(m=>m.interpretation)];
     g+=all.length?'<div class="card"><h3>📚 热梗解读库 <span class="tag-mini">'+all.length+' 条</span></h3>'+all.slice().reverse().map(m=>'<div class="rec-card"><div class="r-head">'+badge(m.source,'#b5651d')+'<span class="date">'+m.date+'</span></div><div class="rec-body">'+nl2br(m.content)+'</div><div style="background:var(--card-deep);border:1px dashed var(--line);border-radius:8px;padding:10px 12px;margin-top:8px;font-size:12.5px;line-height:1.8"><b style="color:var(--red)">AI解读：</b><br>'+nl2br(m.interpretation)+'</div></div>').join(''):'<div class="empty">还没有带解读的热梗，去「手动记录」添加后点「AI解读」</div></div>';
   }
   if(!ai.key)g+='<div class="card" style="border:1px dashed var(--ochre)"><p style="font-size:12.5px;color:var(--ochre);line-height:1.8">⚠️ 未配置 AI 服务。到「设置 → AI服务配置」填写 API Key 后，即可对热梗生成爆款解读（流量潜力、改编方向、切入角度）。</p></div>';
@@ -1509,12 +1527,12 @@ document.body.addEventListener('click',async e=>{
     case 'todo-toggle':{const x=state.todos.find(t=>t.id===el.dataset.id);if(x){x.done=!x.done;saveState();render();}break;}
     case 'todo-add':{const t=$('#td-text'),g=$('#td-tag'),d=$('#td-date');if(t&&t.value.trim()){addTodo(t.value.trim(),g?g.value:'普通',d&&d.value?d.value:undefined,_pendingMedia.slice());_pendingMedia=[];}break;}
     case 'todo-add-day':{const t=$('#dd-text'),g=$('#dd-tag');if(t&&t.value.trim()){addTodo(t.value.trim(),g?g.value:'普通',el.dataset.d,_pendingMediaDay.slice());_pendingMediaDay=[];}break;}
-    case 'todo-del':state.todos=state.todos.filter(t=>t.id!==el.dataset.id);saveState();render();break;
+    case 'todo-del':softDelete(state.todos,el.dataset.id);saveState();render();break;
     case 'todo-media-add':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x)break;const inp=document.createElement('input');inp.type='file';inp.accept='image/*,video/*';inp.multiple=true;inp.style.display='none';inp.onchange=()=>{filesToMedia(inp.files,arr=>{x.media=x.media||[];x.media.push(...arr);saveState();render();});inp.remove();};document.body.appendChild(inp);inp.click();break;}
     case 'todo-media-del':{const x=state.todos.find(t=>t.id===el.dataset.id);if(x&&x.media){const m=x.media[+el.dataset.i];if(m)mediaDel(m.id);x.media.splice(+el.dataset.i,1);saveState();render();}break;}
     case 'todo-media-view':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x||!x.media)break;const m=x.media[+el.dataset.i];const d=resolveMedia(m);if(!d||!d.data)break;const bg=document.createElement('div');bg.className='todo-media-view';bg.innerHTML=d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" controls autoplay></video>';bg.onclick=()=>bg.remove();document.body.appendChild(bg);break;}
     case 'moment-add':{const t=$('#mom-title'),tx=$('#mom-text'),d=$('#mom-date');if(!t)break;if(!t.value.trim()&&!tx.value.trim()){alert('至少写点标题或文字吧');break;}state.moments.unshift({id:uid(),title:t.value.trim(),text:tx?tx.value.trim():'',date:d&&d.value?d.value:todayKey(),media:_pendingMomentMedia.slice()});_pendingMomentMedia=[];saveState();render();break;}
-    case 'moment-del':{const m=state.moments.find(x=>x.id===el.dataset.id);if(m&&m.media)m.media.forEach(x=>mediaDel(x.id));state.moments=state.moments.filter(x=>x.id!==el.dataset.id);saveState();render();break;}
+    case 'moment-del':{const m=state.moments.find(x=>x.id===el.dataset.id);if(m&&m.media)m.media.forEach(x=>mediaDel(x.id));softDelete(state.moments,el.dataset.id);saveState();render();break;}
     case 'moment-edit':{const m=state.moments.find(x=>x.id===el.dataset.id);if(!m)break;editMoment(m);break;}
     case 'moment-media-view':{const m=state.moments.find(x=>x.id===el.dataset.id);if(!m||!m.media)break;const mm=m.media[+el.dataset.i];const d=resolveMedia(mm);if(!d||!d.data)break;const bg=document.createElement('div');bg.className='todo-media-view';bg.innerHTML=d.type==='image'?'<img src="'+d.data+'">':'<video src="'+d.data+'" controls autoplay></video>';bg.onclick=()=>bg.remove();document.body.appendChild(bg);break;}
     case 'todo-edit':{const x=state.todos.find(t=>t.id===el.dataset.id);if(!x)break;editTodo(x);break;}
@@ -1529,28 +1547,28 @@ document.body.addEventListener('click',async e=>{
     case 'acc-status':ui.accStatus=el.dataset.v;render();break;
     case 'acc-topic':{const k=el.dataset.k;const r=rtGet('acc-topic-'+k);const sel=document.getElementById('acc-topic-status-'+k);if(r.text){state.accounts[k].topics.push({id:uid(),text:r.html,status:sel?sel.value:'未成文',date:todayKey()});saveState();render();}break;}
     case 'acc-topic-toggle':break;
-    case 'acc-topic-del':{const a=state.accounts[el.dataset.k];a.topics=a.topics.filter(t=>t.id!==el.dataset.id);saveState();render();break;}
+    case 'acc-topic-del':{const a=state.accounts[el.dataset.k];softDelete(a.topics,el.dataset.id);saveState();render();break;}
     case 'acc-topic-edit':{const a=state.accounts[el.dataset.k];const tp=a.topics.find(t=>t.id===el.dataset.id);if(!tp)break;showEditModal('编辑选题',[{id:'text',label:'选题内容',type:'rich',value:tp.text},{id:'status',label:'状态',type:'select',options:ACC_STATUS,value:tp.status}],v=>{tp.text=v.text;tp.status=v.status;saveState();render();});break;}
     case 'acc-art-add':{showEditModal('添加文章数据',[{id:'title',label:'文章标题',placeholder:'如：曹端哲学的现代意义'},{id:'link',label:'文章链接',placeholder:'https://mp.weixin.qq.com/...'},{id:'date',label:'发布日期',type:'date',value:todayKey()},{id:'firstReads',label:'首发阅读量',type:'number'},{id:'firstLikes',label:'首发点赞',type:'number'},{id:'firstWow',label:'首发在看',type:'number'},{id:'day7Reads',label:'7日阅读量',type:'number'},{id:'day7Likes',label:'7日点赞',type:'number'},{id:'day7Wow',label:'7日在看',type:'number'},{id:'shares',label:'转发数',type:'number'},{id:'comments',label:'留言数',type:'number'}],v=>{state.accounts[el.dataset.k].articles.push({id:uid(),title:v.title,link:v.link,date:v.date,firstReads:+v.firstReads||0,firstLikes:+v.firstLikes||0,firstWow:+v.firstWow||0,day7Reads:+v.day7Reads||0,day7Likes:+v.day7Likes||0,day7Wow:+v.day7Wow||0,shares:+v.shares||0,comments:+v.comments||0});saveState();render();});break;}
     case 'acc-art-edit':{const a=state.accounts[el.dataset.k];const ar=a.articles.find(x=>x.id===el.dataset.id);if(!ar)break;showEditModal('编辑文章数据',[{id:'title',label:'文章标题',value:ar.title},{id:'link',label:'文章链接',value:ar.link},{id:'date',label:'发布日期',type:'date',value:ar.date},{id:'firstReads',label:'首发阅读量',type:'number',value:ar.firstReads},{id:'firstLikes',label:'首发点赞',type:'number',value:ar.firstLikes},{id:'firstWow',label:'首发在看',type:'number',value:ar.firstWow},{id:'day7Reads',label:'7日阅读量',type:'number',value:ar.day7Reads},{id:'day7Likes',label:'7日点赞',type:'number',value:ar.day7Likes},{id:'day7Wow',label:'7日在看',type:'number',value:ar.day7Wow},{id:'shares',label:'转发数',type:'number',value:ar.shares},{id:'comments',label:'留言数',type:'number',value:ar.comments}],v=>{Object.assign(ar,{title:v.title,link:v.link,date:v.date,firstReads:+v.firstReads||0,firstLikes:+v.firstLikes||0,firstWow:+v.firstWow||0,day7Reads:+v.day7Reads||0,day7Likes:+v.day7Likes||0,day7Wow:+v.day7Wow||0,shares:+v.shares||0,comments:+v.comments||0});saveState();render();});break;}
-    case 'acc-art-del':{state.accounts[el.dataset.k].articles=state.accounts[el.dataset.k].articles.filter(x=>x.id!==el.dataset.id);saveState();render();break;}
+    case 'acc-art-del':{softDelete(state.accounts[el.dataset.k].articles,el.dataset.id);saveState();render();break;}
     case 'acc-art-import':{const bg=document.createElement('div');bg.className='modal-bg';bg.innerHTML='<div class="modal"><h3>📋 粘贴导入</h3><p style="font-size:12.5px;color:var(--ink-soft);margin-bottom:10px;line-height:1.6">从公众号后台导出 Excel 后，选中数据列复制，粘贴到下方。格式：每行一篇，列用 Tab 分隔。<br>如：标题 Tab 阅读量 Tab 点赞量 Tab …</p><textarea id="art-import-area" rows="8" style="width:100%;font-size:11px" placeholder="标题\t阅读量\t点赞\t在看\t转发\t留言\n曹端哲学\t1234\t56\t12\t3\t5"></textarea><button class="btn" style="margin-top:10px" data-act="art-import-go">解析并导入</button><button class="btn btn-ghost" style="margin-top:10px;margin-left:8px" data-act="art-import-cancel">取消</button></div>';document.body.appendChild(bg);bg.querySelector('[data-act="art-import-go"]').onclick=()=>{const txt=bg.querySelector('#art-import-area').value.trim();if(!txt){alert('请粘贴数据');return;}const lines=txt.split('\n').filter(l=>l.trim());let cnt=0;lines.forEach(line=>{const cols=line.split('\t').map(c=>c.trim());if(cols.length>=2){state.accounts[el.dataset.k].articles.push({id:uid(),title:cols[0]||'未命名',link:'',date:todayKey(),firstReads:+cols[1]||0,firstLikes:+cols[2]||0,firstWow:+cols[3]||0,day7Reads:0,day7Likes:0,day7Wow:0,shares:+cols[4]||0,comments:+cols[5]||0});cnt++;}});bg.remove();saveState();render();alert('成功导入 '+cnt+' 篇文章数据');};bg.querySelector('[data-act="art-import-cancel"]').onclick=()=>bg.remove();bg.addEventListener('click',e=>{if(e.target===bg)bg.remove();});break;}
     case 'concept-add':{const sit=rtGet('cp-sit'),aw=rtGet('cp-aware'),go=rtGet('cp-gong'),re=rtGet('cp-res');if(!sit.text&&!aw.text&&!go.text&&!re.text)break;state.concepts.unshift({id:uid(),date:$('#cp-date').value||todayKey(),category:$('#cp-cat').value,seed:$('#cp-seed').value,sit:sit.html,aware:aw.html,gong:go.html,res:re.html});saveState();render();break;}
-    case 'concept-del':state.concepts=state.concepts.filter(c=>c.id!==el.dataset.id);saveState();render();break;
+    case 'concept-del':softDelete(state.concepts,el.dataset.id);saveState();render();break;
     case 'concept-edit':{const c=state.concepts.find(x=>x.id===el.dataset.id);if(!c)break;showEditModal('编辑观念记录',[{id:'date',label:'日期',type:'date',value:c.date},{id:'category',label:'分类',type:'select',options:CONCEPT_CATS,value:c.category},{id:'seed',label:'种子',type:'select',options:SEEDS,value:c.seed},{id:'sit',label:'情境',type:'rich',value:c.sit},{id:'aware',label:'觉察',type:'rich',value:c.aware},{id:'gong',label:'功夫',type:'rich',value:c.gong},{id:'res',label:'结果',type:'rich',value:c.res}],v=>{Object.assign(c,{date:v.date,category:v.category,seed:v.seed,sit:v.sit,aware:v.aware,gong:v.gong,res:v.res});saveState();render();});break;}
     case 'concept-filter':ui.conceptCat=el.dataset.v;render();break;
     case 'novel-tab':ui.novelTab=el.dataset.v;render();break;
     case 'novel-add':{const t=$('#nv-title').value.trim(),b=rtGet('nv-body');if(!t&&!b.text)break;state.novel.notes.push({id:uid(),type:ui.novelTab,title:t||'（未命名）',content:b.html,date:todayKey()});saveState();render();break;}
-    case 'novel-del':state.novel.notes=state.novel.notes.filter(x=>x.id!==el.dataset.id);saveState();render();break;
+    case 'novel-del':softDelete(state.novel.notes,el.dataset.id);saveState();render();break;
     case 'novel-edit':{const n=state.novel.notes.find(x=>x.id===el.dataset.id);if(!n)break;showEditModal('编辑笔记',[{id:'title',label:'标题',value:n.title},{id:'content',label:'内容',type:'rich',value:n.content}],v=>{n.title=v.title;n.content=v.content;saveState();render();});break;}
     case 'reading-add':{const b=rtGet('rd-body');if(!b.text&&!$('#rd-title').value.trim())break;state.reading.unshift({id:uid(),category:$('#rd-cat').value,title:$('#rd-title').value.trim()||'（无标题）',content:b.html,date:todayKey()});saveState();render();break;}
-    case 'reading-del':state.reading=state.reading.filter(x=>x.id!==el.dataset.id);saveState();render();break;
+    case 'reading-del':softDelete(state.reading,el.dataset.id);saveState();render();break;
     case 'reading-edit':{const r=state.reading.find(x=>x.id===el.dataset.id);if(!r)break;showEditModal('编辑札记',[{id:'category',label:'分类',type:'select',options:READ_CATS,value:r.category},{id:'title',label:'标题',value:r.title},{id:'content',label:'内容',type:'rich',value:r.content}],v=>{r.category=v.category;r.title=v.title;r.content=v.content;saveState();render();});break;}
     case 'reading-filter':ui.readCat=el.dataset.v;render();break;
     case 'idea-quick':ui.ideaQuick=el.dataset.v;render();break;
     case 'idea-filter':ui.ideaType=el.dataset.v;render();break;
     case 'idea-add':{const r=rtGet('idea-text');if(r.text){state.ideas.unshift({id:uid(),type:ui.ideaQuick,text:r.html,date:todayKey()});saveState();render();}break;}
-    case 'idea-del':state.ideas=state.ideas.filter(x=>x.id!==el.dataset.id);saveState();render();break;
+    case 'idea-del':softDelete(state.ideas,el.dataset.id);saveState();render();break;
     case 'idea-edit':{const id=state.ideas.find(x=>x.id===el.dataset.id);if(!id)break;showEditModal('编辑灵感',[{id:'type',label:'类型',type:'select',options:IDEA_TYPES,value:id.type},{id:'text',label:'内容',type:'rich',value:id.text}],v=>{id.type=v.type;id.text=v.text;saveState();render();});break;}
     case 'ov-todo-add':{const t=$('#ov-todo'),g=$('#ov-tag');if(t&&t.value.trim())addTodo(t.value.trim(),g?g.value:'普通');break;}
     case 'cal-prev':ui.calMonth=addMonths(ui.calMonth+'-01',-1).slice(0,7);render();break;
@@ -1592,7 +1610,7 @@ document.body.addEventListener('click',async e=>{
     case 'hot-tab':ui.hotTab=el.dataset.v;render();if(ui.hotTab==='auto')setTimeout(loadHotAuto,50);break;
     case 'hot-refresh':loadHotAuto();break;
     case 'hot-manual-add':{const c=$('#hm-content'),s=$('#hm-source'),ht=$('#hm-heat'),lk=$('#hm-link');if(c&&c.value.trim()){state.hottrends.manual.push({id:uid(),date:todayKey(),source:s?s.value:'其他',content:c.value.trim(),heat:ht?ht.value.trim():'',link:lk?lk.value.trim():'',interpretation:''});saveState();render();}break;}
-    case 'hot-manual-del':{state.hottrends.manual=state.hottrends.manual.filter(m=>m.id!==el.dataset.id);saveState();render();break;}
+    case 'hot-manual-del':{softDelete(state.hottrends.manual,el.dataset.id);saveState();render();break;}
     case 'hot-manual-edit':{const m=state.hottrends.manual.find(x=>x.id===el.dataset.id);if(!m)break;showEditModal('编辑热梗',[{id:'source',label:'来源平台',type:'select',options:HOT_MANUAL_SOURCES,value:m.source},{id:'heat',label:'热度',value:m.heat},{id:'content',label:'内容',type:'textarea',value:m.content},{id:'link',label:'链接',value:m.link}],v=>{Object.assign(m,{source:v.source,heat:v.heat,content:v.content,link:v.link});saveState();render();});break;}
     case 'hot-interpret':{const m=state.hottrends.manual.find(x=>x.id===el.dataset.id);if(!m)break;const btn=el;btn.textContent='⏳ 解读中…';btn.disabled=true;const r=await callAI(aiInterpretPrompt(m.content,m.source));if(r.ok){m.interpretation=r.text;saveState();btn.textContent='✅ 已生成';setTimeout(()=>{render();},500);}else{btn.textContent='❌ 失败';setTimeout(()=>{alert(r.error);btn.textContent='🤖 AI解读';btn.disabled=false;},300);}break;}
     case 'hot-to-topic':{const m=state.hottrends.manual.find(x=>x.id===el.dataset.id);if(m)showTopicPicker(m.id,'manual',m.content);break;}
