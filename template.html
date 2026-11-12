@@ -351,11 +351,11 @@ textarea{resize:vertical;width:100%}
 const DB_NAME='GengWorkbench';const STORE='kv';const KEY_STATE='state';const KEY_SB='supabase_config';const KEY_NAME='user_name';const KEY_THEME='user_theme';
 const THEMES={
   bamboo:{name:'竹青',bg:'#f2ece0',card:'#fbf7ec',cardDeep:'#f7f1e2',ink:'#2c2416',inkSoft:'#6f6350',inkFaint:'#9a8f7a',primary:'#4a7c59',primaryDeep:'#2d4a36',red:'#c23a2b',blue:'#3d6b7c',ochre:'#b5651d',purple:'#7d5a8c',line:'#e4dac2',track:'#e8dfca',hero1:'#2d4a36',hero2:'#4a7c59',heroText:'#f4eeda',heroFaint:'rgba(244,238,218,.55)'},
-  silence:{name:'静寂',bg:'#bab2a7',card:'#f5f3ef',cardDeep:'#e8e4dc',ink:'#4c3d3e',inkSoft:'#798a9d',inkFaint:'#a8a098',primary:'#38334e',primaryDeep:'#2a2638',red:'#a0392e',blue:'#798a9d',ochre:'#9a7b5a',purple:'#6b5b7a',line:'#d8d2c8',track:'#e0dbd0',hero1:'#38334e',hero2:'#5a5268',heroText:'#f4f0ea',heroFaint:'rgba(244,240,234,.55)'},
-  glow:{name:'柔光',bg:'#ebc98e',card:'#fdf6e3',cardDeep:'#f5e6c8',ink:'#343b34',inkSoft:'#714d2d',inkFaint:'#a89878',primary:'#728b24',primaryDeep:'#54681a',red:'#a0392e',blue:'#5a7a8a',ochre:'#ebb857',purple:'#7a5a8a',line:'#e0d2a8',track:'#f0e4c0',hero1:'#714d2d',hero2:'#b88a4a',heroText:'#fff8e6',heroFaint:'rgba(255,248,230,.55)'},
-  rain:{name:'梅雨',bg:'#d4c5d8',card:'#ede4f0',cardDeep:'#e0d4e8',ink:'#38334e',inkSoft:'#798a9d',inkFaint:'#9d8aa8',primary:'#9d4fc3',primaryDeep:'#5f3ba7',red:'#a0395e',blue:'#568de4',ochre:'#b89060',purple:'#7c4fa3',line:'#c8b8d0',track:'#dcc8e0',hero1:'#5f3ba7',hero2:'#9d4fc3',heroText:'#f4eefa',heroFaint:'rgba(244,238,250,.55)'},
+  silence:{name:'静寂',bg:'#bab2a7',card:'#f2f0ec',cardDeep:'#e4e0d8',ink:'#404d4d',inkSoft:'#798a9d',inkFaint:'#a8a098',primary:'#4c3d3e',primaryDeep:'#38334e',red:'#9c3a3a',blue:'#5a7a8a',ochre:'#8a7050',purple:'#6b5b7a',line:'#d0cac0',track:'#e0dbd0',hero1:'#38334e',hero2:'#4c3d3e',heroText:'#f0ece4',heroFaint:'rgba(240,236,228,.55)'},
+  glow:{name:'柔光',bg:'#ebc98e',card:'#fdf6e3',cardDeep:'#f5e6c8',ink:'#343b34',inkSoft:'#714d2d',inkFaint:'#a89878',primary:'#728b24',primaryDeep:'#54681a',red:'#9c3a2a',blue:'#5a7a8a',ochre:'#ebb857',purple:'#7a5a6a',line:'#e0d2a8',track:'#f0e4c0',hero1:'#714d2d',hero2:'#b88a4a',heroText:'#fff8e6',heroFaint:'rgba(255,248,230,.55)'},
+  rain:{name:'梅雨',bg:'#d4c5d8',card:'#ede4f0',cardDeep:'#e0d4e8',ink:'#38334e',inkSoft:'#6a6a8a',inkFaint:'#9d8aa8',primary:'#9d4fc3',primaryDeep:'#5f3ba7',red:'#9c3a5e',blue:'#568de4',ochre:'#b89060',purple:'#7c4fa3',line:'#c8b8d0',track:'#dcc8e0',hero1:'#5f3ba7',hero2:'#9d4fc3',heroText:'#f4eefa',heroFaint:'rgba(244,238,250,.55)'},
   berry:{name:'莓梦',bg:'#d6b99b',card:'#f5e8dc',cardDeep:'#ecd8c4',ink:'#4f574b',inkSoft:'#8c9481',inkFaint:'#a89888',primary:'#ad0000',primaryDeep:'#7a0000',red:'#ad0000',blue:'#5a7a8a',ochre:'#c08040',purple:'#7a4a6a',line:'#d8c8b0',track:'#e8d8c0',hero1:'#7a0000',hero2:'#ad0000',heroText:'#f8e8e8',heroFaint:'rgba(248,232,232,.55)'},
-  mediterra:{name:'地中海',bg:'#eaddbe',card:'#faf5e8',cardDeep:'#f0e8d0',ink:'#838679',inkSoft:'#a0a0a6',inkFaint:'#b8b8a8',primary:'#6c6c6c',primaryDeep:'#4a4a4a',red:'#c25a5a',blue:'#7a9ab0',ochre:'#c8a868',purple:'#9a7aa8',line:'#e0d8c0',track:'#ece4d0',hero1:'#5a6e7a',hero2:'#7a9ab0',heroText:'#faf5e8',heroFaint:'rgba(250,245,232,.55)'}
+  mediterra:{name:'地中海',bg:'#eaddbe',card:'#faf5e8',cardDeep:'#f0e8d0',ink:'#5a5a5a',inkSoft:'#838679',inkFaint:'#b0b0a0',primary:'#6c6c6c',primaryDeep:'#4a4a4a',red:'#c25a5a',blue:'#7a9ab0',ochre:'#c8a868',purple:'#9a7aa8',line:'#e0d8c0',track:'#ece4d0',hero1:'#5a6e7a',hero2:'#7a9ab0',heroText:'#faf5e8',heroFaint:'rgba(250,245,232,.55)'}
 };
 function getTheme(){return localStorage.getItem(KEY_THEME)||'bamboo';}
 function applyTheme(name){
@@ -370,7 +370,7 @@ function applyTheme(name){
 }
 const CI_ITEMS=[['qi','早起'],['jingang','八部金刚功'],['changshou','八部长寿功'],['guannian','观念观照'],['dushu','读书1小时'],['shui','23点前睡']];
 const TODO_TAGS=['普通','英语','读书','要紧','学术','公众号','观念','小说'];
-const TAG_COLORS={'普通':'#8a8371','英语':'#3d6b7c','读书':'#4a7c59','要紧':'#c23a2b','学术':'#3d6b7c','公众号':'#b5651d','观念':'#7d5a8c','小说':'#2d4a36'};
+const TAG_COLORS={'普通':'var(--ink-faint)','英语':'var(--blue)','读书':'var(--green)','要紧':'var(--red)','学术':'var(--blue)','公众号':'var(--ochre)','观念':'var(--purple)','小说':'var(--green-deep)'};
 const CONCEPT_CATS=['自我观念','案例分析','笔记类型','他人观念'];
 const SEEDS=['贪','嗔','痴','慢','疑','不适用'];
 const NOVEL_TYPES=['素材','人物','大纲','草稿','灵感'];
