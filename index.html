@@ -517,6 +517,13 @@ function withTimeout(promise,ms){
     new Promise((_,rej)=>setTimeout(()=>rej(new Error('请求超时('+ms+'ms)')),ms))
   ]);
 }
+/* 推送前剥离媒体 base64，大幅减小 payload，避免 iOS Safari "Load failed" */
+function stripMediaForCloud(src){
+  const clone=JSON.parse(JSON.stringify(src));
+  const lists=[clone.todos,clone.moments];
+  for(const list of lists){if(!Array.isArray(list))continue;for(const it of list){if(!it.media)continue;for(const m of it.media){delete m.data;}}}
+  return clone;
+}
 async function syncToCloud(){
   if(!_supaClient){syncLog('syncToCloud: no supabase client');return;}
   if(_syncTimer){clearTimeout(_syncTimer);_syncTimer=null;}
@@ -534,7 +541,8 @@ async function syncToCloud(){
           const{data:cur}=await withTimeout(_supaClient.from('workbench').select('data').eq('id','main').maybeSingle(),15000);
           if(cur&&cur.data){
             const cloudMoods=cur.data.moods||{};
-            const m=mergeState(state,mergeObj(defaultData(),cur.data));
+            const cloudLean=stripMediaForCloud(cur.data);
+            const m=mergeState(state,mergeObj(defaultData(),cloudLean));
             if(m.changed){state=m.state;snapState();await idbSet(KEY_STATE,state);syncLog('推送前合并云端，有变化。合并后moods=['+moodDump()+']');render();}
           }
         }catch(_){syncLog('推送前拉取云端失败，继续推送本地');}
@@ -542,7 +550,11 @@ async function syncToCloud(){
         if(!state._meta)state._meta={};
         state._meta.lw=DEVICE_ID;
         await compressStateImages();
-        const{data:upserted,error}=await withTimeout(_supaClient.from('workbench').upsert({id:'main',data:state,updated_at:now}).select('updated_at'),30000);
+        // 推送前剥离媒体 base64，只同步元数据，避免 payload 过大导致 iOS 推送失败
+        const payload=stripMediaForCloud(state);
+        const payloadKB=Math.round(JSON.stringify(payload).length/1024);
+        syncLog('推送 payload 约 '+payloadKB+'KB（已剥离媒体base64）');
+        const{data:upserted,error}=await withTimeout(_supaClient.from('workbench').upsert({id:'main',data:payload,updated_at:now}).select('updated_at'),30000);
         if(error)throw error;
         _dirty=false;
         const serverTs=upserted&&upserted[0]&&upserted[0].updated_at?new Date(upserted[0].updated_at).getTime():new Date(now).getTime();
@@ -645,7 +657,9 @@ async function syncFromCloud(force){
       }
       const cur=await idbGet(KEY_STATE);
       if(cur)await idbSet('backup_state',cur);
-      const cloudNorm=mergeObj(defaultData(),cloud);
+      // 剥离云端媒体 base64，避免合并时大 base64 进入本地 state
+      const cloudLean=stripMediaForCloud(cloud);
+      const cloudNorm=mergeObj(defaultData(),cloudLean);
       const m=mergeState(state,cloudNorm);
       // 诊断日志
       try{
