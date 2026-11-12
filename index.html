@@ -519,13 +519,15 @@ async function syncToCloud(){
       if(_pushing){syncLog('syncToCloud: push in progress, skip');resolve();return;}
       _pushing=true;setConn('syncing');
       try{
-        syncLog('推送开始 (moods='+Object.keys(state.moods||{}).length+', checkins='+Object.keys(state.checkins||{}).length+', todos='+(state.todos||[]).length+')');
+        const moodDump=()=>Object.entries(state.moods||{}).map(([d,v])=>d+':'+(typeof v==='object'?v.v:v)).join(',');
+        syncLog('推送开始 moods=['+moodDump()+'] todos='+(state.todos||[]).length);
         // 推送前先拉云端合并，避免整份覆盖冲掉另一台设备刚新增的内容
         try{
           const{data:cur}=await _supaClient.from('workbench').select('data').eq('id','main').maybeSingle();
           if(cur&&cur.data){
+            const cloudMoods=cur.data.moods||{};
             const m=mergeState(state,mergeObj(defaultData(),cur.data));
-            if(m.changed){state=m.state;snapState();await idbSet(KEY_STATE,state);syncLog('推送前合并云端，有变化');}
+            if(m.changed){state=m.state;snapState();await idbSet(KEY_STATE,state);syncLog('推送前合并云端，有变化。合并后moods=['+moodDump()+']');render();}
           }
         }catch(_){syncLog('推送前拉取云端失败，继续推送本地');}
         const now=new Date().toISOString();
@@ -616,8 +618,8 @@ function mergeState(local,cloud){
 async function syncFromCloud(force){
   if(!_supaClient)return;
   if(_syncingFromCloud){syncLog('拉取进行中，跳过');return;}
-  // 非强制拉取时，若有未推送修改先推送；force 时一定拉取（合并不会丢本地数据）
-  if(!force&&(_dirty||_pushing||_saveTimer||_syncTimer)){syncLog('有本地改动，先推送');syncToCloud();return;}
+  // 非强制拉取时，若有未推送修改先推送再拉取；force 时一定拉取（合并不会丢本地数据）
+  if(!force&&(_dirty||_pushing||_saveTimer||_syncTimer)){syncLog('有本地改动，先推送再拉取');await syncToCloud();}
   _syncingFromCloud=true;
   try{
     const{data,error}=await _supaClient.from('workbench').select('data,updated_at').eq('id','main').maybeSingle();
@@ -639,15 +641,14 @@ async function syncFromCloud(force){
       const m=mergeState(state,cloudNorm);
       // 诊断日志
       try{
+        const moodStr=o=>Object.entries(o||{}).map(([d,v])=>d+':'+(typeof v==='object'?v.v+'(up='+(v.up||0)+')':v)).join(',');
         const dbg={force,lw:cloudLw.slice(0,8),isSelf,changed:m.changed,
-          cloudMoodDates:Object.keys(cloudNorm.moods||{}),
-          localMoodDates:Object.keys(state.moods||{}),
-          cloudCheckinDates:Object.keys(cloudNorm.checkins||{}),
-          localCheckinDates:Object.keys(state.checkins||{}),
+          cloudMoods:moodStr(cloudNorm.moods),
+          localMoods:moodStr(state.moods),
           todos:(cloudNorm.todos||[]).map(t=>{const o=(state.todos||[]).find(x=>x.id===t.id);return{id:t.id,cloudDone:t.done,cloudUp:t.up,localDone:o?o.done:'-',localUp:o?o.up:'-',useCloud:o?(t.up||0)>(o.up||0):'NEW'};})
         };
         console.log('[syncFromCloud] merge',JSON.stringify(dbg));
-        syncLog('拉取合并 lw='+cloudLw.slice(0,6)+' changed='+m.changed+' mood云:'+Object.keys(cloudNorm.moods||{}).length+'本地:'+Object.keys(state.moods||{}).length);
+        syncLog('拉取合并 lw='+cloudLw.slice(0,6)+' changed='+m.changed+' 云moods=['+moodStr(cloudNorm.moods)+'] 本地moods=['+moodStr(state.moods)+']');
       }catch(e){}
       state=m.state;
       snapState();
