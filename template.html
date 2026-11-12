@@ -239,13 +239,13 @@ textarea{resize:vertical;width:100%}
 .modal .btns{display:flex;gap:10px;margin-top:14px}
 
 /* ====== 顶栏 Hero ====== */
-.hero{background:linear-gradient(135deg,#2d4a36,#3a5f44);border-radius:16px;padding:20px 24px;margin-bottom:16px;color:#f4eeda;position:relative;overflow:hidden}
-.hero .h-date{font-size:12px;color:rgba(244,238,218,.6);letter-spacing:1px}
+.hero{background:linear-gradient(135deg,var(--hero-1),var(--hero-2));border-radius:16px;padding:20px 24px;margin-bottom:16px;color:var(--hero-text);position:relative;overflow:hidden}
+.hero .h-date{font-size:12px;color:var(--hero-faint);letter-spacing:1px}
 .hero .h-welcome{font-family:"Noto Serif SC",serif;font-size:20px;letter-spacing:2px;font-weight:700;margin-top:4px}
-.hero .h-cheer{font-size:13px;color:rgba(244,238,218,.8);margin-top:8px;letter-spacing:1px;line-height:1.7;max-width:70%}
+.hero .h-cheer{font-size:13px;color:var(--hero-faint);margin-top:8px;letter-spacing:1px;line-height:1.7;max-width:70%}
 .hero .h-clock{position:absolute;right:22px;top:50%;transform:translateY(-50%);text-align:right;font-family:Georgia,serif}
-.hero .h-clock .t{font-size:25px;font-weight:700;letter-spacing:2px;color:#f4eeda}
-.hero .h-clock .s{font-size:10.5px;color:rgba(244,238,218,.5);letter-spacing:2px}
+.hero .h-clock .t{font-size:25px;font-weight:700;letter-spacing:2px;color:var(--hero-text)}
+.hero .h-clock .s{font-size:10.5px;color:var(--hero-faint);letter-spacing:2px}
 .grid9{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
 /* ====== 横向大导航选项卡 ====== */
 .bigtabs{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 12px;margin-bottom:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -350,16 +350,12 @@ textarea{resize:vertical;width:100%}
 /* ====== 常量 ====== */
 const DB_NAME='GengWorkbench';const STORE='kv';const KEY_STATE='state';const KEY_SB='supabase_config';const KEY_NAME='user_name';const KEY_THEME='user_theme';
 const THEMES={
-  bamboo:{name:'竹青',bg:'#f2ece0',card:'#fbf7ec',cardDeep:'#f7f1e2',ink:'#2c2416',inkSoft:'#6f6350',inkFaint:'#9a8f7a',primary:'#4a7c59',primaryDeep:'#2d4a36',red:'#c23a2b',blue:'#3d6b7c',ochre:'#b5651d',purple:'#7d5a8c',line:'#e4dac2',track:'#e8dfca'},
-  night:{name:'墨夜',bg:'#1a1a2e',card:'#252540',cardDeep:'#1e1e36',ink:'#e8e8f0',inkSoft:'#a0a0b8',inkFaint:'#707088',primary:'#4ade80',primaryDeep:'#22c55e',red:'#f87171',blue:'#60a5fa',ochre:'#fbbf24',purple:'#c084fc',line:'#3a3a5c',track:'#2a2a44'},
-  sky:{name:'天蓝',bg:'#eef4f8',card:'#ffffff',cardDeep:'#e6eef3',ink:'#1e293b',inkSoft:'#64748b',inkFaint:'#94a3b8',primary:'#0ea5e9',primaryDeep:'#0369a1',red:'#ef4444',blue:'#3b82f6',ochre:'#f59e0b',purple:'#8b5cf6',line:'#d4dde6',track:'#e2e8f0'},
-  warm:{name:'暖橙',bg:'#fdf6f0',card:'#ffffff',cardDeep:'#f9ede3',ink:'#3d2817',inkSoft:'#7a5c3e',inkFaint:'#a89078',primary:'#ea580c',primaryDeep:'#c2410c',red:'#dc2626',blue:'#2563eb',ochre:'#d97706',purple:'#7c3aed',line:'#ecdcc8',track:'#f3e6d6'},
-  plain:{name:'素白',bg:'#fafafa',card:'#ffffff',cardDeep:'#f4f4f5',ink:'#18181b',inkSoft:'#52525b',inkFaint:'#a1a1aa',primary:'#52525b',primaryDeep:'#27272a',red:'#ef4444',blue:'#3b82f6',ochre:'#eab308',purple:'#8b5cf6',line:'#e4e4e7',track:'#f4f4f5'},
-  silence:{name:'静寂',bg:'#bab2a7',card:'#f5f3ef',cardDeep:'#e8e4dc',ink:'#4c3d3e',inkSoft:'#798a9d',inkFaint:'#a8a098',primary:'#38334e',primaryDeep:'#2a2638',red:'#a0392e',blue:'#798a9d',ochre:'#9a7b5a',purple:'#6b5b7a',line:'#d8d2c8',track:'#e0dbd0'},
-  glow:{name:'柔光',bg:'#ebc98e',card:'#fdf6e3',cardDeep:'#f5e6c8',ink:'#343b34',inkSoft:'#714d2d',inkFaint:'#a89878',primary:'#728b24',primaryDeep:'#54681a',red:'#a0392e',blue:'#5a7a8a',ochre:'#ebb857',purple:'#7a5a8a',line:'#e0d2a8',track:'#f0e4c0'},
-  rain:{name:'梅雨',bg:'#d4c5d8',card:'#ede4f0',cardDeep:'#e0d4e8',ink:'#38334e',inkSoft:'#798a9d',inkFaint:'#9d8aa8',primary:'#9d4fc3',primaryDeep:'#5f3ba7',red:'#a0395e',blue:'#568de4',ochre:'#b89060',purple:'#7c4fa3',line:'#c8b8d0',track:'#dcc8e0'},
-  berry:{name:'莓梦',bg:'#d6b99b',card:'#f5e8dc',cardDeep:'#ecd8c4',ink:'#4f574b',inkSoft:'#8c9481',inkFaint:'#a89888',primary:'#ad0000',primaryDeep:'#7a0000',red:'#ad0000',blue:'#5a7a8a',ochre:'#c08040',purple:'#7a4a6a',line:'#d8c8b0',track:'#e8d8c0'},
-  mediterra:{name:'地中海',bg:'#eaddbe',card:'#faf5e8',cardDeep:'#f0e8d0',ink:'#838679',inkSoft:'#a0a0a6',inkFaint:'#b8b8a8',primary:'#6c6c6c',primaryDeep:'#4a4a4a',red:'#c25a5a',blue:'#7a9ab0',ochre:'#c8a868',purple:'#9a7aa8',line:'#e0d8c0',track:'#ece4d0'}
+  bamboo:{name:'竹青',bg:'#f2ece0',card:'#fbf7ec',cardDeep:'#f7f1e2',ink:'#2c2416',inkSoft:'#6f6350',inkFaint:'#9a8f7a',primary:'#4a7c59',primaryDeep:'#2d4a36',red:'#c23a2b',blue:'#3d6b7c',ochre:'#b5651d',purple:'#7d5a8c',line:'#e4dac2',track:'#e8dfca',hero1:'#2d4a36',hero2:'#4a7c59',heroText:'#f4eeda',heroFaint:'rgba(244,238,218,.55)'},
+  silence:{name:'静寂',bg:'#bab2a7',card:'#f5f3ef',cardDeep:'#e8e4dc',ink:'#4c3d3e',inkSoft:'#798a9d',inkFaint:'#a8a098',primary:'#38334e',primaryDeep:'#2a2638',red:'#a0392e',blue:'#798a9d',ochre:'#9a7b5a',purple:'#6b5b7a',line:'#d8d2c8',track:'#e0dbd0',hero1:'#38334e',hero2:'#5a5268',heroText:'#f4f0ea',heroFaint:'rgba(244,240,234,.55)'},
+  glow:{name:'柔光',bg:'#ebc98e',card:'#fdf6e3',cardDeep:'#f5e6c8',ink:'#343b34',inkSoft:'#714d2d',inkFaint:'#a89878',primary:'#728b24',primaryDeep:'#54681a',red:'#a0392e',blue:'#5a7a8a',ochre:'#ebb857',purple:'#7a5a8a',line:'#e0d2a8',track:'#f0e4c0',hero1:'#714d2d',hero2:'#b88a4a',heroText:'#fff8e6',heroFaint:'rgba(255,248,230,.55)'},
+  rain:{name:'梅雨',bg:'#d4c5d8',card:'#ede4f0',cardDeep:'#e0d4e8',ink:'#38334e',inkSoft:'#798a9d',inkFaint:'#9d8aa8',primary:'#9d4fc3',primaryDeep:'#5f3ba7',red:'#a0395e',blue:'#568de4',ochre:'#b89060',purple:'#7c4fa3',line:'#c8b8d0',track:'#dcc8e0',hero1:'#5f3ba7',hero2:'#9d4fc3',heroText:'#f4eefa',heroFaint:'rgba(244,238,250,.55)'},
+  berry:{name:'莓梦',bg:'#d6b99b',card:'#f5e8dc',cardDeep:'#ecd8c4',ink:'#4f574b',inkSoft:'#8c9481',inkFaint:'#a89888',primary:'#ad0000',primaryDeep:'#7a0000',red:'#ad0000',blue:'#5a7a8a',ochre:'#c08040',purple:'#7a4a6a',line:'#d8c8b0',track:'#e8d8c0',hero1:'#7a0000',hero2:'#ad0000',heroText:'#f8e8e8',heroFaint:'rgba(248,232,232,.55)'},
+  mediterra:{name:'地中海',bg:'#eaddbe',card:'#faf5e8',cardDeep:'#f0e8d0',ink:'#838679',inkSoft:'#a0a0a6',inkFaint:'#b8b8a8',primary:'#6c6c6c',primaryDeep:'#4a4a4a',red:'#c25a5a',blue:'#7a9ab0',ochre:'#c8a868',purple:'#9a7aa8',line:'#e0d8c0',track:'#ece4d0',hero1:'#5a6e7a',hero2:'#7a9ab0',heroText:'#faf5e8',heroFaint:'rgba(250,245,232,.55)'}
 };
 function getTheme(){return localStorage.getItem(KEY_THEME)||'bamboo';}
 function applyTheme(name){
@@ -370,6 +366,7 @@ function applyTheme(name){
   r.setProperty('--green',t.primary);r.setProperty('--green-deep',t.primaryDeep);
   r.setProperty('--red',t.red);r.setProperty('--blue',t.blue);r.setProperty('--ochre',t.ochre);r.setProperty('--purple',t.purple);
   r.setProperty('--line',t.line);r.setProperty('--track',t.track);
+  r.setProperty('--hero-1',t.hero1);r.setProperty('--hero-2',t.hero2);r.setProperty('--hero-text',t.heroText);r.setProperty('--hero-faint',t.heroFaint);
 }
 const CI_ITEMS=[['qi','早起'],['jingang','八部金刚功'],['changshou','八部长寿功'],['guannian','观念观照'],['dushu','读书1小时'],['shui','23点前睡']];
 const TODO_TAGS=['普通','英语','读书','要紧','学术','公众号','观念','小说'];
