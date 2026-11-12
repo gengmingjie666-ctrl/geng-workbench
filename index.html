@@ -517,13 +517,6 @@ function withTimeout(promise,ms){
     new Promise((_,rej)=>setTimeout(()=>rej(new Error('请求超时('+ms+'ms)')),ms))
   ]);
 }
-/* 推送前剥离媒体 base64，大幅减小 payload，避免 iOS Safari "Load failed" */
-function stripMediaForCloud(src){
-  const clone=JSON.parse(JSON.stringify(src));
-  const lists=[clone.todos,clone.moments];
-  for(const list of lists){if(!Array.isArray(list))continue;for(const it of list){if(!it.media)continue;for(const m of it.media){delete m.data;}}}
-  return clone;
-}
 async function syncToCloud(){
   if(!_supaClient){syncLog('syncToCloud: no supabase client');return;}
   if(_syncTimer){clearTimeout(_syncTimer);_syncTimer=null;}
@@ -535,14 +528,13 @@ async function syncToCloud(){
       _pushing=true;setConn('syncing');
       try{
         const moodDump=()=>Object.entries(state.moods||{}).map(([d,v])=>d+':'+(typeof v==='object'?v.v:v)).join(',');
-        syncLog('推送开始 moods=['+moodDump()+'] todos='+(state.todos||[]).length);
+        syncLog('推送开始 moods=['+moodDump()+'] todos='+(state.todos||[]).length+' size='+Math.round(JSON.stringify(state).length/1024)+'KB');
         // 推送前先拉云端合并，避免整份覆盖冲掉另一台设备刚新增的内容
         try{
           const{data:cur}=await withTimeout(_supaClient.from('workbench').select('data').eq('id','main').maybeSingle(),15000);
           if(cur&&cur.data){
             const cloudMoods=cur.data.moods||{};
-            const cloudLean=stripMediaForCloud(cur.data);
-            const m=mergeState(state,mergeObj(defaultData(),cloudLean));
+            const m=mergeState(state,mergeObj(defaultData(),cur.data));
             if(m.changed){state=m.state;snapState();await idbSet(KEY_STATE,state);syncLog('推送前合并云端，有变化。合并后moods=['+moodDump()+']');render();}
           }
         }catch(_){syncLog('推送前拉取云端失败，继续推送本地');}
@@ -550,11 +542,7 @@ async function syncToCloud(){
         if(!state._meta)state._meta={};
         state._meta.lw=DEVICE_ID;
         await compressStateImages();
-        // 推送前剥离媒体 base64，只同步元数据，避免 payload 过大导致 iOS 推送失败
-        const payload=stripMediaForCloud(state);
-        const payloadKB=Math.round(JSON.stringify(payload).length/1024);
-        syncLog('推送 payload 约 '+payloadKB+'KB（已剥离媒体base64）');
-        const{data:upserted,error}=await withTimeout(_supaClient.from('workbench').upsert({id:'main',data:payload,updated_at:now}).select('updated_at'),30000);
+        const{data:upserted,error}=await withTimeout(_supaClient.from('workbench').upsert({id:'main',data:state,updated_at:now}).select('updated_at'),30000);
         if(error)throw error;
         _dirty=false;
         const serverTs=upserted&&upserted[0]&&upserted[0].updated_at?new Date(upserted[0].updated_at).getTime():new Date(now).getTime();
@@ -657,9 +645,7 @@ async function syncFromCloud(force){
       }
       const cur=await idbGet(KEY_STATE);
       if(cur)await idbSet('backup_state',cur);
-      // 剥离云端媒体 base64，避免合并时大 base64 进入本地 state
-      const cloudLean=stripMediaForCloud(cloud);
-      const cloudNorm=mergeObj(defaultData(),cloudLean);
+      const cloudNorm=mergeObj(defaultData(),cloud);
       const m=mergeState(state,cloudNorm);
       // 诊断日志
       try{
@@ -1563,11 +1549,15 @@ function compressImage(dataUrl,maxDim,quality){return new Promise(res=>{
   };img.onerror=()=>res(dataUrl);img.src=dataUrl;
 });}
 // 推送前压缩 state 里所有 > 200KB 的图片，避免请求体超限
+/* 推送前处理媒体：压缩大图、清理视频data（视频只存IndexedDB不进state）、
+   若state仍过大则剥离大图片data，确保推送不超限 */
 async function compressStateImages(){
   const allMedia=[];
   (state.todos||[]).forEach(t=>(t.media||[]).filter(m=>!m._deleted).forEach(m=>allMedia.push(m)));
   (state.moments||[]).forEach(m=>(m.media||[]).filter(x=>!x._deleted).forEach(x=>allMedia.push(x)));
   for(const m of allMedia){
+    // 视频 data 不存 state（只存 IndexedDB），防止 state 过大
+    if(m.type==='video'&&m.data){delete m.data;}
     if(m.type==='image'&&m.data&&m.data.length>200000){
       try{
         m.data=await compressImage(m.data,1920,0.7);
@@ -1575,6 +1565,14 @@ async function compressStateImages(){
       }catch(e){}
     }
   }
+  // 二次保护：若 state 仍超过 5MB，剥离所有图片 data（保留 id，另一台设备可从 IndexedDB 读）
+  try{
+    let sz=JSON.stringify(state).length;
+    if(sz>5*1024*1024){
+      syncLog('state过大('+Math.round(sz/1024)+'KB)，剥离图片data');
+      for(const m of allMedia){if(m.type==='image'&&m.data)delete m.data;}
+    }
+  }catch(e){}
 }
 function filesToMedia(files,cb){
   const out=[];let left=files.length;if(!left){cb(out);return;}
