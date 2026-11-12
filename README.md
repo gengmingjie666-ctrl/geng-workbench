@@ -2,7 +2,7 @@
 
 一个零依赖、零构建的单文件 HTML 个人精进工作台。打开即用，数据本地存储，可选 Supabase 云端多端同步。
 
-> 访问作者实例：[gengmingjie666-ctrl.github.io/geng-workbench](https://gengmingjie666-ctrl.github.io/geng-workbench/)
+> 在线演示：[gengmingjie666-ctrl.github.io/geng-workbench](https://gengmingjie666-ctrl.github.io/geng-workbench/)
 
 ## ✨ 功能特性
 
@@ -29,7 +29,7 @@
 
 ### 方式一：直接使用
 
-1. 下载 [`index.html`](./index.html)（或 [`template.html`](./template.html) 模板）
+1. 下载 [`index.html`](./index.html)
 2. 双击用浏览器打开即可使用
 3. 所有数据保存在浏览器本地（IndexedDB）
 
@@ -41,17 +41,11 @@
 
 ## ⚙️ 自定义配置
 
-### 1. 修改个人信息
+### 1. 设置个人称呼
 
-打开 HTML 文件，搜索 `你的名字`（模板版）或直接替换为你的名字：
+打开工作台 → ⚙️ 设置 → 「👤 个人信息」，填入你的名字即可。名字仅保存在本地浏览器（localStorage），不会上传到云端，也不会出现在公开代码中。
 
-- `<title>你的名字 · 个人工作台</title>` — 浏览器标签页标题
-- `<h1>你的名字工作台</h1>` — 侧边栏/顶栏标题
-- `<div class="seal">你</div>` — 印章字（建议用你的姓）
-- `const n='你的名字';` — 问候语中的名字
-- 导出备份文件名中的 `你的名字工作台备份`
-
-> 💡 作者版 `index.html` 已填入作者名字，**请使用 `template.html` 或自行替换**。
+设置后，页面标题、侧边栏、问候语、备份文件名都会自动使用你的称呼。
 
 ### 2. 配置云端同步（可选，多端同步必需）
 
@@ -105,4 +99,4 @@ Fork 后自动生效，无需额外配置。
 
 ## 📄 许可证
 
-[MIT License](./LICENSE) © 2026 耿茗傑
+[MIT License](./LICENSE)
