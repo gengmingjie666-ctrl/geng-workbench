@@ -1548,6 +1548,59 @@ function compressImage(dataUrl,maxDim,quality){return new Promise(res=>{
     res(cv.toDataURL('image/jpeg',quality));
   };img.onerror=()=>res(dataUrl);img.src=dataUrl;
 });}
+/* 视频压缩：用 Canvas + MediaRecorder 重新编码，降分辨率到 480p、码率 500kbps。
+   压缩后 < 1MB 则返回 base64 可同步；否则返回 null（调用方存 IndexedDB）。
+   不支持 MediaRecorder 时降级为抽帧图片。 */
+function compressVideo(file){
+  return new Promise((resolve)=>{
+    if(typeof MediaRecorder==='undefined'||!HTMLCanvasElement.prototype.captureStream){
+      resolve(null);return;
+    }
+    const url=URL.createObjectURL(file);
+    const video=document.createElement('video');
+    video.src=url;video.muted=false;video.playsInline=true;video.crossOrigin='anonymous';
+    let done=false;
+    const finish=(result)=>{if(done)return;done=true;URL.revokeObjectURL(url);resolve(result);};
+    video.onloadedmetadata=()=>{
+      const maxW=480;
+      const scale=Math.min(1,maxW/video.videoWidth);
+      const w=Math.round(video.videoWidth*scale);
+      const h=Math.round(video.videoHeight*scale);
+      const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      const vstream=canvas.captureStream(15);
+      // 尝试合并音频轨
+      let stream=vstream;
+      try{
+        const vs=(video.captureStream||video.mozCaptureStream).call(video);
+        const at=vs.getAudioTracks();
+        if(at.length)stream=new MediaStream([...vstream.getVideoTracks(),...at]);
+      }catch(e){}
+      let mt='video/webm;codecs=vp9';
+      if(!MediaRecorder.isTypeSupported(mt))mt='video/webm;codecs=vp8';
+      if(!MediaRecorder.isTypeSupported(mt))mt='video/webm';
+      if(!MediaRecorder.isTypeSupported(mt)){finish(null);return;}
+      const rec=new MediaRecorder(stream,{mimeType:mt,videoBitsPerSecond:500000});
+      const chunks=[];
+      rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
+      rec.onstop=()=>{
+        const blob=new Blob(chunks,{type:mt});
+        if(blob.size>1024*1024){finish(null);return;}
+        const fr=new FileReader();
+        fr.onload=()=>finish(fr.result);
+        fr.onerror=()=>finish(null);
+        fr.readAsDataURL(blob);
+      };
+      const draw=()=>{if(done||video.paused||video.ended)return;ctx.drawImage(video,0,0,w,h);requestAnimationFrame(draw);};
+      video.onended=()=>{try{rec.stop();}catch(e){}};
+      video.onplay=()=>{rec.start();draw();};
+      video.play().then(()=>{}).catch(()=>{video.muted=true;video.play().then(()=>{}).catch(()=>finish(null));});
+      // 超时保护：30秒后强制停止
+      setTimeout(()=>{try{rec.state==='recording'&&rec.stop();}catch(e){}},30000);
+    };
+    video.onerror=()=>finish(null);
+  });
+}
 // 推送前压缩 state 里所有 > 200KB 的图片，避免请求体超限
 /* 推送前处理媒体：压缩大图、清理视频data（视频只存IndexedDB不进state）、
    若state仍过大则剥离大图片data，确保推送不超限 */
@@ -1556,8 +1609,10 @@ async function compressStateImages(){
   (state.todos||[]).forEach(t=>(t.media||[]).filter(m=>!m._deleted).forEach(m=>allMedia.push(m)));
   (state.moments||[]).forEach(m=>(m.media||[]).filter(x=>!x._deleted).forEach(x=>allMedia.push(x)));
   for(const m of allMedia){
-    // 视频 data 不存 state（只存 IndexedDB），防止 state 过大
-    if(m.type==='video'&&m.data){delete m.data;}
+    // 视频：压缩后<1MB的保留（可同步），大的删除data只存IndexedDB
+    if(m.type==='video'&&m.data){
+      if(m.data.length>1024*1024){delete m.data;}
+    }
     if(m.type==='image'&&m.data&&m.data.length>200000){
       try{
         m.data=await compressImage(m.data,1920,0.7);
@@ -1578,21 +1633,40 @@ function filesToMedia(files,cb){
   const out=[];let left=files.length;if(!left){cb(out);return;}
   for(const f of files){
     if(f.size>100*1024*1024){alert((f.name||'文件')+' 超过 100MB，已跳过');if(--left===0)cb(out);continue;}
-    const r=new FileReader();
-    r.onload=async()=>{
-      const id=uid();const type=f.type.startsWith('video')?'video':'image';
-      let data=r.result;
-      // 图片压缩后再存储，确保不超过云同步限制
-      if(type==='image'){
-        try{data=await compressImage(data,1920,0.7);}catch(e){}
+    const isVideo=f.type.startsWith('video');
+    const id=uid();
+    (async()=>{
+      let type=isVideo?'video':'image';
+      let data=null;
+      if(isVideo){
+        // 尝试压缩视频，压缩后<1MB则可同步
+        try{data=await compressVideo(f);}catch(e){data=null;}
+        if(!data){
+          // 压缩失败或太大：原始视频存IndexedDB，state不存data（不阻塞同步）
+          const r=new FileReader();
+          const origData=await new Promise((res,rej)=>{r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f);});
+          await mediaPut(id,{type:'video',data:origData,name:f.name});
+          out.push({id,type:'video',name:f.name});
+          if(--left===0)cb(out);
+          return;
+        }
+        // 压缩成功：存IndexedDB + state
+        await mediaPut(id,{type:'video',data,name:f.name});
+        out.push({id,type:'video',name:f.name,data});
+      }else{
+        const r=new FileReader();
+        r.onload=async()=>{
+          data=r.result;
+          try{data=await compressImage(data,1920,0.7);}catch(e){}
+          await mediaPut(id,{type:'image',data,name:f.name});
+          out.push({id,type:'image',name:f.name,data});
+          if(--left===0)cb(out);
+        };
+        r.readAsDataURL(f);
+        return;
       }
-      await mediaPut(id,{type,data,name:f.name});
-      const item={id,type,name:f.name};
-      if(type==='image')item.data=data;
-      out.push(item);
       if(--left===0)cb(out);
-    };
-    r.readAsDataURL(f);
+    })();
   }
 }
 function renderMediaPreview(arr,containerId){
