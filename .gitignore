@@ -1,6 +1,7 @@
 # 系统文件
 .DS_Store
 Thumbs.db
+.screenshots/
 
 # 编辑器
 .vscode/
