@@ -959,6 +959,30 @@ body::before{
 .bg-row b{color:var(--ink)}
 .bg-row .btn{padding:5px 10px;font-size:12px}
 
+/* ---------- AI 周报 / 月报 ---------- */
+.report-body{
+  border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--card-deep);padding:var(--sp-4);margin-top:6px;
+  font-size:14px;line-height:24px;
+}
+.rp-h{
+  font-weight:600;font-size:15px;line-height:22px;margin:14px 0 6px;
+  color:var(--ink);padding-left:8px;border-left:3px solid var(--red);
+}
+.rp-h:first-child{margin-top:0}
+.rp-p{margin:2px 0;color:var(--ink-soft)}
+.rp-li{position:relative;padding-left:14px;margin:2px 0;color:var(--ink-soft)}
+.rp-li::before{content:'·';position:absolute;left:4px;color:var(--red);font-weight:700}
+.rp-meta{margin-top:12px;padding-top:8px;border-top:1px dashed var(--line);font-size:12px;line-height:16px;color:var(--ink-faint)}
+.rp-hist{display:flex;flex-direction:column;gap:2px}
+.rp-hist-item{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 10px;border-radius:var(--r-sm);cursor:pointer;
+  font-size:13px;line-height:18px;color:var(--ink-soft);
+  transition:background .3s var(--ease),color .3s var(--ease);
+}
+.rp-hist-item:hover{background:var(--hover);color:var(--ink)}
+
 /* ---------- 无障碍：降低动效 ---------- */
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{
@@ -1068,6 +1092,7 @@ function defaultData(){
     accounts:{personal:{target:52,records:[],topics:[],articles:[]},work:{target:52,records:[],topics:[],articles:[]}},
     concepts:[],novel:{words:0,stage:'构思',notes:[]},
     reading:[],ideas:[],moments:[],
+    reports:[],
     english:{examType:'四级CET-4',words:0,listening:0,reading:0,speaking:0,logs:[]},
     exercise:{logs:[],weights:[]},
     hottrends:{auto:[],manual:[]},
@@ -1200,7 +1225,7 @@ async function syncToCloud(){
           if(cur&&cur.data){
             const cloudMoods=cur.data.moods||{};
             const m=mergeState(state,mergeObj(defaultData(),cur.data));
-            if(m.changed){state=m.state;snapState();await idbSet(KEY_STATE,state);syncLog('推送前合并云端，有变化。合并后moods=['+moodDump()+']');render();}
+            if(m.changed){state=m.state;snapState();await idbSet(KEY_STATE,state);syncLog('推送前合并云端，有变化。合并后moods=['+moodDump()+']');softRender();}
           }
         }catch(_){syncLog('推送前拉取云端失败，继续推送本地');}
         const now=new Date().toISOString();
@@ -1334,7 +1359,7 @@ async function syncFromCloud(force){
         syncLog('合并有变化且非自己写入，推回云端');
         syncToCloud();
       }
-      render();
+      softRender();
     }else{
       syncLog('云端无数据');
     }
@@ -1393,13 +1418,15 @@ function aiConfig(){
   if(state&&state.ai)return state.ai;
   try{return JSON.parse(localStorage.getItem(KEY_AI)||'{}');}catch(e){return{};}
 }
-async function callAI(prompt){
+async function callAI(prompt,opts){
   const cfg=aiConfig();if(!cfg.key)return{error:'未配置 AI 服务，请到设置中填写 API Key'};
   const isZhipu=cfg.provider!=='deepseek';
   const url=isZhipu?'https://open.bigmodel.cn/api/paas/v4/chat/completions':'https://api.deepseek.com/chat/completions';
   const model=isZhipu?'glm-4-flash':'deepseek-chat';
+  const maxTokens=(opts&&opts.maxTokens)||1000;
+  const temperature=(opts&&opts.temperature)!=null?opts.temperature:0.8;
   try{
-    const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},body:JSON.stringify({model,messages:[{role:'user',content:prompt}],temperature:0.8,max_tokens:1000})});
+    const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},body:JSON.stringify({model,messages:[{role:'user',content:prompt}],temperature,max_tokens:maxTokens})});
     if(!resp.ok){const t=await resp.text();return{error:'API错误('+resp.status+'): '+t.slice(0,200)};}
     const d=await resp.json();return{ok:true,text:d.choices?.[0]?.message?.content||'(空)'};}
   catch(e){return{error:'网络错误: '+e.message};}
@@ -1663,6 +1690,7 @@ function badge(tag,color){return'<span class="badge" style="background:'+color+'
 const ui={view:'overview',calMonth:todayKey().slice(0,7),calSel:todayKey(),todoTag:'all',readCat:'all',ideaType:'all',ideaQuick:'文章选题',novelTab:'素材',conceptCat:'all',accKey:'personal',accStatus:'全部',editId:null,exerciseType:'跑步',engTab:'words',hotTab:'auto',hotManualSource:'小红书'};
 const VIEWS={
   overview:{ico:'🏠',name:'总览'},
+  report:{ico:'🧠',name:'AI 周报'},
   todos:{ico:'📋',name:'今日日课'},
   checkin:{ico:'🌿',name:'修身打卡'},
   academic:{ico:'📖',name:'学术研究'},
@@ -2179,8 +2207,143 @@ function vSettings(){
   return pageHead('⚙️ 设置','云端同步 · 数据管理 · 使用说明')+g;
 }
 
-/* ====== 渲染 ====== */
-const RENDER={overview:vOverview,todos:vTodos,checkin:vCheckin,academic:vAcademic,accp:()=>vAccount('personal','🔥','个人公众号','生活感受 + 中华经典'),accw:()=>vAccount('work','💼','工作公众号','工作相关内容 · 独立统计'),concept:vConcept,novel:vNovel,reading:vReading,ideas:vIdeas,moments:vMoments,english:vEnglish,exercise:vExercise,finance:vFinance,ainews:vAINews,hottrends:vHotTrends,settings:vSettings};
+/* ====== AI 周报 / 月报 ====== */
+function isoWeekKey(d){
+  const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const day=t.getUTCDay()||7;
+  t.setUTCDate(t.getUTCDate()+4-day);
+  const y0=new Date(Date.UTC(t.getUTCFullYear(),0,1));
+  const wk=Math.ceil(((t-y0)/86400000+1)/7);
+  return t.getUTCFullYear()+'-W'+pad(wk);
+}
+function reportPeriod(type){
+  const d=new Date();
+  return type==='month'?(d.getFullYear()+'-'+pad(d.getMonth()+1)):isoWeekKey(d);
+}
+function reportDays(type){
+  const n=type==='month'?30:7,out=[],d=new Date();
+  for(let i=n-1;i>=0;i--){const x=new Date(d);x.setDate(d.getDate()-i);out.push(todayKey(x));}
+  return out;
+}
+function buildReportStats(type){
+  const days=reportDays(type),set=new Set(days);
+  const todos=active(state.todos).filter(t=>set.has(t.date));
+  const done=todos.filter(t=>t.done).length;
+  const tagCount={};todos.forEach(t=>{const k=t.tag||'普通';tagCount[k]=(tagCount[k]||0)+1;});
+  const ciDay=days.map(d=>ciCount(d));
+  const ciAvg=(ciDay.reduce((a,b)=>a+b,0)/days.length).toFixed(1);
+  const ciItems=CI_ITEMS.map(([k,n])=>n+':'+days.filter(d=>(state.checkins[d]||{})[k]).length+'天').join('，');
+  const moodCount={};days.forEach(d=>{const v=moodVal(d);const m=MOODS.find(x=>x[0]===v);if(m)moodCount[m[2]]=(moodCount[m[2]]||0)+1;});
+  const moodStr=Object.entries(moodCount).map(([k,v])=>k+'×'+v).join('，')||'未记录';
+  const engQty=state.english.logs.filter(l=>set.has(l.date)).reduce((s,l)=>s+(l.qty||0),0);
+  const exMin=state.exercise.logs.filter(l=>set.has(l.date)).reduce((s,l)=>s+(l.dur||0),0);
+  const exCnt=state.exercise.logs.filter(l=>set.has(l.date)).length;
+  return {
+    days:days.length,
+    range:days[0]+' 至 '+days[days.length-1],
+    todoTotal:todos.length,todoDone:done,todoRate:todos.length?Math.round(done/todos.length*100):0,
+    tagTop:Object.entries(tagCount).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>k+'×'+v).join('，')||'无',
+    ciAvg,ciItems,
+    moodStr,
+    reading:active(state.reading).filter(x=>set.has(x.date)).length,
+    ideas:active(state.ideas).filter(x=>set.has(x.date)).length,
+    concepts:active(state.concepts).filter(x=>set.has(x.date)).length,
+    novelWords:state.novel.words,novelStage:state.novel.stage,
+    engQty,engWords:state.english.words,
+    exMin,exCnt,
+    accP:state.accounts.personal.records.filter(d=>set.has(d)).length,
+    accW:state.accounts.work.records.filter(d=>set.has(d)).length,
+    moments:active(state.moments).filter(x=>set.has(x.date)).length,
+    thesis:state.papers.map(p=>p.name+' '+paperPct(p)+'%').join('，')
+  };
+}
+function buildReportPrompt(type,st){
+  const label=type==='month'?'月报':'周报';
+  return '你是一位严谨而温和的个人成长教练。请根据下面这位用户最近'+st.days+'天的真实记录，写一份中文'+label+'。\n\n'+
+  '【时间范围】'+st.range+'\n'+
+  '【日课】共'+st.todoTotal+'条，完成'+st.todoDone+'条，完成率'+st.todoRate+'%。主要类别：'+st.tagTop+'\n'+
+  '【修身打卡】日均'+st.ciAvg+'/6。各项达标天数：'+st.ciItems+'\n'+
+  '【心情】'+st.moodStr+'\n'+
+  '【阅读札记】'+st.reading+'篇；【灵感】'+st.ideas+'条；【观念工夫】'+st.concepts+'条\n'+
+  '【小说】累计'+st.novelWords+'字，阶段：'+st.novelStage+'\n'+
+  '【英语】新增'+st.engQty+'词，累计'+st.engWords+'\n'+
+  '【运动】'+st.exCnt+'次，共'+st.exMin+'分钟\n'+
+  '【公众号】个人号发文'+st.accP+'篇，工作号'+st.accW+'篇\n'+
+  '【纪念瞬间】'+st.moments+'条；【论文进度】'+st.thesis+'\n\n'+
+  '写作要求：\n'+
+  '1. 用纯文本，不用Markdown符号，小标题用「一、二、三、四、五」。\n'+
+  '2. 依次写：一、总体概览（3-4句）；二、本周/本月亮点（3条，结合数据）；三、需要留意的问题（2-3条，具体不空泛）；四、下阶段建议（3条可执行动作）；五、一句话鼓励。\n'+
+  '3. 语气真诚、克制，像一个了解他的老师，不要说套话，不要编造数据之外的内容。\n'+
+  '4. 总字数600-900字。';
+}
+let _reportBusy=false;
+async function generateReport(type,manual){
+  if(_reportBusy)return;
+  const cfg=aiConfig();
+  if(!cfg.key){if(manual)alert('请先在「设置 → AI 服务配置」填写 API Key');return;}
+  _reportBusy=true;
+  const tip=document.getElementById('reportTip');
+  if(tip)tip.textContent='⏳ AI 正在分析近'+(type==='month'?'30':'7')+'天数据，请稍候…';
+  const st=buildReportStats(type);
+  const r=await callAI(buildReportPrompt(type,st),{maxTokens:2200,temperature:0.7});
+  _reportBusy=false;
+  if(!r.ok){if(tip)tip.textContent='';if(manual)alert(r.error);syncLog('报告生成失败: '+r.error);return;}
+  const period=reportPeriod(type);
+  state.reports=state.reports||[];
+  const old=state.reports.find(x=>x.type===type&&x.period===period);
+  if(old){old.content=r.text;old.createdAt=Date.now();old.up=Date.now();}
+  else state.reports.unshift({id:uid(),type,period,content:r.text,createdAt:Date.now(),up:Date.now()});
+  state.reports=state.reports.slice(0,24);
+  saveState();
+  softRender();
+}
+function reportAutoOn(){try{return localStorage.getItem('wb_report_auto')!=='0';}catch(e){return true;}}
+async function tryAutoReport(){
+  if(!reportAutoOn())return;
+  if(!(aiConfig()||{}).key)return;
+  for(const t of ['week','month']){
+    if(!(state.reports||[]).some(r=>r.type===t&&r.period===reportPeriod(t))){
+      await generateReport(t,false);
+      await new Promise(r=>setTimeout(r,800));
+    }
+  }
+}
+function escHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function rpFormat(t){
+  return escHtml(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').split(/\n+/).map(line=>{
+    const l=line.trim();if(!l)return'';
+    if(/^(#+|[一二三四五六七八九十]+、|【)/.test(l))return '<div class="rp-h">'+l.replace(/^#+\s*/,'')+'</div>';
+    if(/^[-•*·]\s*/.test(l)&&l.length>1)return '<div class="rp-li">'+l.replace(/^[-•*·]\s*/,'')+'</div>';
+    return '<div class="rp-p">'+l+'</div>';
+  }).join('');
+}
+function vReport(){
+  const type=ui.reportType||'week';
+  const label=type==='month'?'月报':'周报';
+  const period=reportPeriod(type);
+  const cur=(state.reports||[]).find(x=>x.type===type&&x.period===period);
+  const hist=(state.reports||[]).filter(x=>x.type===type&&x.period!==period).slice(0,8);
+  const cfg=aiConfig();
+  let g='<div class="card">';
+  g+='<h3>🧠 AI '+label+' <span class="tag-mini">'+(cfg.key?'已接入 AI':'未配置 AI')+'</span></h3>';
+  g+='<div class="bigtabs" style="margin-bottom:12px"><div class="bt'+(type==='week'?' on':'')+'" data-act="report-tab" data-t="week">周报</div><div class="bt'+(type==='month'?' on':'')+'" data-act="report-tab" data-t="month">月报</div></div>';
+  g+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">';
+  g+='<button class="btn" data-act="report-gen" data-t="'+type+'">'+(cur?'重新生成'+label:'生成本'+label)+'</button>';
+  g+='<button class="btn btn-ghost" data-act="report-auto">自动生成：'+(reportAutoOn()?'开':'关')+'</button>';
+  g+='<span class="tag-mini" id="reportTip"></span></div>';
+  g+='<p style="font-size:12px;line-height:20px;color:var(--ink-faint)">周期：'+period+' · 统计范围：'+reportDays(type)[0]+' 至 '+reportDays(type)[reportDays(type).length-1]+'。'+(reportAutoOn()?'每周一/每月初打开应用时自动生成。':'')+'</p>';
+  if(!cfg.key)g+='<div class="empty" style="text-align:left">请先到「设置 → AI 服务配置」填写 API Key，然后回到这里生成报告。</div>';
+  else if(!cur)g+='<div class="empty">本期'+label+'还未生成，点击上方按钮即可让 AI 分析你的记录。</div>';
+  else g+='<div class="report-body">'+rpFormat(cur.content)+'<div class="rp-meta">生成于 '+new Date(cur.createdAt).toLocaleString()+'</div></div>';
+  g+='</div>';
+  if(hist.length){
+    g+='<div class="card"><h3>📚 历史'+label+'</h3><div class="rp-hist">';
+    g+=hist.map(h=>'<div class="rp-hist-item" data-act="report-open" data-id="'+h.id+'"><span>'+h.period+'</span><span class="tag-mini">'+new Date(h.createdAt).toLocaleDateString()+'</span></div>').join('');
+    g+='</div><div id="rpHistBody"></div></div>';
+  }
+  return pageHead('🧠 AI 周报 · 月报','AI 分析你的记录，给出阶段复盘与建议')+g;
+}
+const RENDER={overview:vOverview,report:vReport,todos:vTodos,checkin:vCheckin,academic:vAcademic,accp:()=>vAccount('personal','🔥','个人公众号','生活感受 + 中华经典'),accw:()=>vAccount('work','💼','工作公众号','工作相关内容 · 独立统计'),concept:vConcept,novel:vNovel,reading:vReading,ideas:vIdeas,moments:vMoments,english:vEnglish,exercise:vExercise,finance:vFinance,ainews:vAINews,hottrends:vHotTrends,settings:vSettings};
 function render(){
   renderNav();renderTabs();
   $('#main').innerHTML=(RENDER[ui.view]||vOverview)();
@@ -2231,6 +2394,23 @@ function animateMetrics(){
   });
 }
 
+function isEditing(){
+  const a=document.activeElement;
+  if(!a)return false;
+  const tag=a.tagName;
+  return tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||a.isContentEditable===true;
+}
+/* 后台同步触发的渲染：正在输入时跳过，避免手机收起键盘、已输入内容丢失 */
+let _pendingRender=false;
+function softRender(){
+  if(isEditing()){_pendingRender=true;return;}
+  _pendingRender=false;
+  render();
+}
+document.addEventListener('focusout',()=>{
+  if(!_pendingRender)return;
+  setTimeout(()=>{if(_pendingRender&&!isEditing()){_pendingRender=false;render();}},150);
+},true);
 /* ====== 外观主题 ====== */
 const THEMES=[
   ['ink','纸墨','米白纸底 · 经典'],
@@ -2479,6 +2659,10 @@ document.body.addEventListener('click',async e=>{
     case 'theme-cycle':cycleTheme();break;
     case 'bg-next':nextBgArt();render();break;
     case 'bg-toggle':toggleBgArt();render();break;
+    case 'report-tab':ui.reportType=el.dataset.t;render();break;
+    case 'report-gen':generateReport(el.dataset.t,true);break;
+    case 'report-auto':{try{localStorage.setItem('wb_report_auto',reportAutoOn()?'0':'1');}catch(e){}render();break;}
+    case 'report-open':{const r=(state.reports||[]).find(x=>x.id===el.dataset.id);const box=document.getElementById('rpHistBody');if(r&&box)box.innerHTML='<div class="report-body" style="margin-top:10px">'+rpFormat(r.content)+'</div>';break;}
     case 'sb-toggle':{$('#sidebar').classList.toggle('collapsed');$('#app').classList.toggle('sb-collapsed');el.textContent=$('#sidebar').classList.contains('collapsed')?'›':'‹';break;}
     case 'todo-toggle':{const x=state.todos.find(t=>t.id===el.dataset.id);if(x){x.done=!x.done;saveState();render();}break;}
     case 'todo-add':{const t=$('#td-text'),g=$('#td-tag'),d=$('#td-date');if(t&&t.value.trim()){addTodo(t.value.trim(),g?g.value:'普通',d&&d.value?d.value:undefined,_pendingMedia.slice());_pendingMedia=[];}break;}
@@ -2600,7 +2784,7 @@ document.body.addEventListener('change',e=>{
 
 /* ====== 手机端"更多"页面 ====== */
 function vMoreMobile(){
-  const items=[['academic','📖','学术进度','论文进度'],['accp','🔥','个人公众号','发文统计'],['accw','💼','工作公众号','发文统计'],['concept','🎯','观念工夫','观念记录'],['novel','✒️','小说字数','创作笔记'],['reading','📝','读书札记','阅读笔记'],['moments','📸','纪念瞬间','图片/视频/文字'],['english','📕','英语学习','单词/听力/阅读/口语'],['exercise','💪','运动锻炼','运动/体重记录'],['finance','💰','财经资讯','外部渠道'],['ainews','🤖','AI资讯','外部渠道'],['hottrends','🔥','每日热点','热榜+热梗+AI解读'],['settings','⚙️','设置','同步/备份']];
+  const items=[['report','🧠','AI 周报','周报/月报复盘'],['academic','📖','学术进度','论文进度'],['accp','🔥','个人公众号','发文统计'],['accw','💼','工作公众号','发文统计'],['concept','🎯','观念工夫','观念记录'],['novel','✒️','小说字数','创作笔记'],['reading','📝','读书札记','阅读笔记'],['moments','📸','纪念瞬间','图片/视频/文字'],['english','📕','英语学习','单词/听力/阅读/口语'],['exercise','💪','运动锻炼','运动/体重记录'],['finance','💰','财经资讯','外部渠道'],['ainews','🤖','AI资讯','外部渠道'],['hottrends','🔥','每日热点','热榜+热梗+AI解读'],['settings','⚙️','设置','同步/备份']];
   const g='<div class="grid9" style="grid-template-columns:1fr 1fr;margin-bottom:var(--sp-4)">'+items.map(([v,i,n,s])=>'<div class="metric" style="display:flex;flex-direction:column" data-act="nav" data-view="'+v+'"><div style="font-size:20px;line-height:1">'+i+'</div><div style="font-size:14px;line-height:20px;font-weight:600;margin-top:var(--sp-2)">'+n+'</div><div class="m-label" style="margin-top:2px">'+s+'</div></div>').join('')+'</div>';
   return pageHead('🧭 更多模块','学术 · 公众号 · 观念 · 小说 · 札记 · 英语 · 运动 · 资讯 · 设置')+g;
 }
@@ -2641,6 +2825,8 @@ async function init(){
   // 在线/离线检测
   window.addEventListener('online',()=>{if(sbConfig().url)initSupabase();else setConn('offline');});
   window.addEventListener('offline',()=>setConn('offline'));
+  // 自动生成周报/月报（仅在配置了 AI 且本期缺失时，延迟执行避免影响首屏）
+  setTimeout(tryAutoReport,6000);
 }
 // 实时时钟（总览 Hero）
 function tickClock(){
