@@ -904,6 +904,61 @@ html[data-theme="night"] .metric::after,html[data-theme="night"] .link-card::aft
 .theme-opt .tn{display:block;font-size:14px;line-height:20px;font-weight:600;color:var(--ink)}
 .theme-opt .ts{display:block;font-size:12px;line-height:16px;color:var(--ink-faint);margin-top:2px}
 
+/* ---------- 国风背景图 · 每日轮换 ---------- */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:var(--bg-art,none);
+  background-repeat:no-repeat;
+  background-size:cover;
+  background-position:center calc(50% + var(--art-y,0px));
+  opacity:var(--bg-art-op,0);
+  filter:saturate(.92);
+  transition:opacity .8s var(--ease);
+  animation:artDrift 46s ease-in-out infinite alternate;
+  will-change:transform;
+}
+@keyframes artDrift{
+  from{transform:scale(1.05) translate3d(-1%,-1%,0)}
+  to{transform:scale(1.13) translate3d(1.4%,1.1%,0)}
+}
+
+/* ---------- 顶部滚动进度 ---------- */
+#scrollBar{
+  position:fixed;top:0;left:0;height:2px;width:0;z-index:40;pointer-events:none;
+  background:linear-gradient(90deg,var(--red),var(--ochre));
+  box-shadow:0 0 8px rgba(175,58,44,.35);
+  transition:width .12s linear;
+}
+
+/* ---------- 细节动效 ---------- */
+@keyframes lineGrow{from{transform:scaleX(0);opacity:0}to{transform:scaleX(1);opacity:1}}
+@keyframes sealPulse{0%,100%{box-shadow:0 0 0 0 rgba(175,58,44,0)}50%{box-shadow:0 0 0 5px rgba(175,58,44,.10)}}
+@keyframes riseIn{from{opacity:0;transform:translateY(14px) scale(.995);filter:blur(4px)}to{opacity:1;transform:none;filter:blur(0)}}
+
+.page-head h2{position:relative}
+#main.page-in .page-head h2::after{
+  content:'';position:absolute;left:0;bottom:-7px;height:2px;width:100%;
+  background:linear-gradient(90deg,var(--red),transparent);
+  transform-origin:left;animation:lineGrow .7s var(--ease) .08s both;
+}
+.seal{animation:sealPulse 5s ease-in-out infinite}
+.cal-cell{transition:border-color .3s var(--ease),background .3s var(--ease),transform .25s var(--ease),box-shadow .25s var(--ease)}
+.cal-cell:hover{transform:translateY(-2px);box-shadow:var(--shadow-1)}
+.metric .m-value{transition:transform .35s var(--ease),color .35s var(--ease)}
+.metric:hover .m-value{transform:scale(1.04)}
+.nav-item{transition:background .3s var(--ease),color .3s var(--ease),transform .3s var(--ease)}
+.nav-item:hover{transform:translateX(2px)}
+.modal-bg{background:radial-gradient(circle at 50% 38%,rgba(25,24,23,.34),rgba(25,24,23,.64))}
+
+/* ---------- 背景图控制 ---------- */
+.bg-row{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);
+  font-size:12px;line-height:20px;color:var(--ink-soft);
+}
+.bg-row b{color:var(--ink)}
+.bg-row .btn{padding:5px 10px;font-size:12px}
+
 /* ---------- 无障碍：降低动效 ---------- */
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{
@@ -917,6 +972,7 @@ html[data-theme="night"] .metric::after,html[data-theme="night"] .link-card::aft
 </style>
 </head>
 <body>
+<div id="scrollBar"></div>
 <div class="app" id="app">
   <!-- 桌面侧栏 -->
   <aside class="sidebar" id="sidebar">
@@ -2116,7 +2172,7 @@ function showTopicPicker(hotId,hotType,hotContent){
 function vSettings(){
   const cfg=sbConfig();
   const aiCfg=state.ai||{provider:'zhipu',key:''};
-  const g='<div class="card"><h3>🎨 外观主题 <span class="tag-mini">即时切换 · 自动保存</span></h3><div class="theme-row">'+THEMES.map(([k,n,s])=>'<button class="theme-opt'+(themeGet()===k?' on':'')+'" data-act="theme" data-t="'+k+'"><span class="tn">'+n+'</span><span class="ts">'+s+'</span></button>').join('')+'</div></div>'+'<div class="card"><h3>☁️ Supabase 云端同步</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">填写 Supabase 项目 URL 和 anon key 开启云端同步。<br>未填写时数据仅保存在本地（IndexedDB），不会丢失。<br>需在 Supabase 控制台创建数据表：<code style="background:var(--card-deep);padding:2px 6px;border-radius:4px;font-size:11px">create table workbench (id text primary key, data jsonb, updated_at timestamptz default now());</code></p><div class="form-grid"><div class="fld full"><label>Project URL</label><input type="text" id="sb-url" value="'+esc(cfg.url||'')+'" placeholder="https://xxxx.supabase.co"></div><div class="fld full"><label>Anon Key</label><input type="text" id="sb-key" value="'+esc(cfg.key||'')+'" placeholder="eyJ..."></div></div><button class="btn" data-act="sb-save">保存并连接</button> <button class="btn btn-ghost" data-act="sb-test">测试连接</button> <button class="btn btn-red" data-act="sb-clear" style="margin-left:auto">断开</button> <button class="btn btn-ghost" data-act="sb-diagnose" style="margin-left:8px">🔍 诊断同步</button></div>'+
+  const g='<div class="card"><h3>🎨 外观主题 <span class="tag-mini">即时切换 · 自动保存</span></h3><div class="theme-row">'+THEMES.map(([k,n,s])=>'<button class="theme-opt'+(themeGet()===k?' on':'')+'" data-act="theme" data-t="'+k+'"><span class="tn">'+n+'</span><span class="ts">'+s+'</span></button>').join('')+'</div><div class="bg-row"><span>国风背景：<b>'+(bgArtOn()?BG_ARTS[bgArtIndex()].name:'已关闭')+'</b>'+(bgArtOn()?'（每日自动更换）':'')+'</span><button class="btn btn-ghost" data-act="bg-next">换一张</button><button class="btn btn-ghost" data-act="bg-toggle">'+(bgArtOn()?'关闭背景':'开启背景')+'</button></div></div>'+'<div class="card"><h3>☁️ Supabase 云端同步</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">填写 Supabase 项目 URL 和 anon key 开启云端同步。<br>未填写时数据仅保存在本地（IndexedDB），不会丢失。<br>需在 Supabase 控制台创建数据表：<code style="background:var(--card-deep);padding:2px 6px;border-radius:4px;font-size:11px">create table workbench (id text primary key, data jsonb, updated_at timestamptz default now());</code></p><div class="form-grid"><div class="fld full"><label>Project URL</label><input type="text" id="sb-url" value="'+esc(cfg.url||'')+'" placeholder="https://xxxx.supabase.co"></div><div class="fld full"><label>Anon Key</label><input type="text" id="sb-key" value="'+esc(cfg.key||'')+'" placeholder="eyJ..."></div></div><button class="btn" data-act="sb-save">保存并连接</button> <button class="btn btn-ghost" data-act="sb-test">测试连接</button> <button class="btn btn-red" data-act="sb-clear" style="margin-left:auto">断开</button> <button class="btn btn-ghost" data-act="sb-diagnose" style="margin-left:8px">🔍 诊断同步</button></div>'+
   '<div class="card"><h3>🤖 AI 服务配置</h3><p style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;line-height:1.8">配置 AI 服务后，「每日热点」板块可自动生成爆款解读。<br>推荐智谱 GLM（注册送 2000 万 tokens 免费额度：<a href="https://bigmodel.cn/console/overview" target="_blank" style="color:var(--green)">bigmodel.cn</a>）</p><div class="form-grid"><div class="fld"><label>服务商</label><select id="ai-provider"><option value="zhipu"'+(aiCfg.provider==='zhipu'?' selected':'')+'>智谱 GLM</option><option value="deepseek"'+(aiCfg.provider==='deepseek'?' selected':'')+'>DeepSeek</option></select></div><div class="fld full"><label>API Key</label><input type="text" id="ai-key" value="'+esc(aiCfg.key||'')+'" placeholder="粘贴你的 API Key…"></div></div><button class="btn" data-act="ai-save">保存</button> <button class="btn btn-ghost" data-act="ai-test">测试连接</button> <button class="btn btn-red" data-act="ai-clear" style="margin-left:auto">清除</button></div>'+
   '<div class="card"><h3>💾 数据管理</h3><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-ghost" data-act="export">导出备份(JSON)</button><button class="btn btn-ghost" data-act="import">导入备份</button><button class="btn btn-ghost" data-act="restoreBak">♻️ 恢复同步前备份</button><button class="btn btn-red" data-act="reset">清空所有数据</button></div><p style="font-size:12px;color:var(--sub);margin:8px 0 0">「恢复同步前备份」：如果发现同步后内容丢失，点这里可以把上次同步覆盖前的本地数据合并回来。</p></div>'+
   '<div class="card"><h3>📱 使用说明</h3><div style="font-size:12.5px;color:var(--ink-soft);line-height:2"><b>桌面端</b>：将本 HTML 文件放在桌面，双击即可打开。可在浏览器中「添加快捷方式」生成桌面图标。<br><b>手机端</b>：在 Safari 中打开 → 分享 →「添加到主屏幕」，即可像 App 一样使用。<br><b>数据同步</b>：配置 Supabase 后，多设备数据自动同步。未配置时数据保存在本地浏览器。<br><b>侧栏折叠</b>：点击侧栏左上角圆形按钮可折叠/展开侧栏，折叠后仅显示图标。</div></div>';
@@ -2188,11 +2244,51 @@ function applyTheme(t){
   try{localStorage.setItem('wb_theme',t);}catch(e){}
   const meta=document.querySelector('meta[name="theme-color"]');
   if(meta)meta.setAttribute('content',t==='night'?'#101112':(t==='celadon'?'#16281F':'#2d4a36'));
+  applyBgArt();
 }
 function cycleTheme(){
   const order=THEMES.map(x=>x[0]);
   applyTheme(order[(order.indexOf(themeGet())+1)%order.length]);
   render();
+}
+
+/* ====== 国风背景图（每日轮换，随应用部署在 bg/ 目录） ====== */
+const BG_ARTS=[
+  ['远山','bg/art1.jpg'],
+  ['竹雨','bg/art2.jpg'],
+  ['荷风','bg/art3.jpg'],
+  ['寒梅','bg/art4.jpg'],
+  ['松谷','bg/art5.jpg'],
+  ['鹤云','bg/art6.jpg']
+].map(([name,src])=>({name,url:src}));
+
+function bgArtOn(){try{return localStorage.getItem('wb_bg_on')!=='0';}catch(e){return true;}}
+function bgArtIndex(){
+  const d=new Date();
+  const start=new Date(d.getFullYear(),0,0);
+  const doy=Math.floor((d-start)/86400000);
+  let off=0;try{off=parseInt(localStorage.getItem('wb_bg_offset')||'0',10)||0;}catch(e){}
+  return ((doy+off)%BG_ARTS.length+BG_ARTS.length)%BG_ARTS.length;
+}
+function applyBgArt(){
+  const root=document.documentElement;
+  if(!bgArtOn()){
+    root.style.setProperty('--bg-art','none');
+    root.style.setProperty('--bg-art-op','0');
+    return;
+  }
+  const a=BG_ARTS[bgArtIndex()];
+  root.style.setProperty('--bg-art','url("'+a.url+'")');
+  root.style.setProperty('--bg-art-op',themeGet()==='night'?'0.10':'0.22');
+}
+function nextBgArt(){
+  let off=0;try{off=parseInt(localStorage.getItem('wb_bg_offset')||'0',10)||0;}catch(e){}
+  try{localStorage.setItem('wb_bg_offset',String(off+1));}catch(e){}
+  applyBgArt();
+}
+function toggleBgArt(){
+  try{localStorage.setItem('wb_bg_on',bgArtOn()?'0':'1');}catch(e){}
+  applyBgArt();
 }
 
 /* ====== 添加待办 ====== */
@@ -2381,6 +2477,8 @@ document.body.addEventListener('click',async e=>{
     case 'nav':ui.view=el.dataset.view;render();if(el.dataset.view==='hottrends'&&ui.hotTab==='auto')setTimeout(loadHotAuto,100);break;
     case 'theme':applyTheme(el.dataset.t);render();break;
     case 'theme-cycle':cycleTheme();break;
+    case 'bg-next':nextBgArt();render();break;
+    case 'bg-toggle':toggleBgArt();render();break;
     case 'sb-toggle':{$('#sidebar').classList.toggle('collapsed');$('#app').classList.toggle('sb-collapsed');el.textContent=$('#sidebar').classList.contains('collapsed')?'›':'‹';break;}
     case 'todo-toggle':{const x=state.todos.find(t=>t.id===el.dataset.id);if(x){x.done=!x.done;saveState();render();}break;}
     case 'todo-add':{const t=$('#td-text'),g=$('#td-tag'),d=$('#td-date');if(t&&t.value.trim()){addTodo(t.value.trim(),g?g.value:'普通',d&&d.value?d.value:undefined,_pendingMedia.slice());_pendingMedia=[];}break;}
@@ -2562,6 +2660,20 @@ document.addEventListener('pointermove',e=>{
     const r=c.getBoundingClientRect();
     c.style.setProperty('--mx',(e.clientX-r.left)+'px');
     c.style.setProperty('--my',(e.clientY-r.top)+'px');
+  });
+},{passive:true});
+// 滚动：顶部进度条 + 背景图视差
+let _scrollQueued=false;
+window.addEventListener('scroll',()=>{
+  if(_scrollQueued)return;
+  _scrollQueued=true;
+  requestAnimationFrame(()=>{
+    _scrollQueued=false;
+    const y=window.scrollY||document.documentElement.scrollTop||0;
+    const max=document.documentElement.scrollHeight-window.innerHeight;
+    const bar=document.getElementById('scrollBar');
+    if(bar)bar.style.width=(max>0?Math.min(100,(y/max)*100):0)+'%';
+    document.documentElement.style.setProperty('--art-y',(y*0.05)+'px');
   });
 },{passive:true});
 setInterval(tickClock,1000);
